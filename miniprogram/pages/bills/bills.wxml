@@ -1,0 +1,42 @@
+<view class="wrap">
+  <view class="card" wx:for="{{invoices}}" wx:key="invoice_id">
+    <view class="row">
+      <view>
+        <view class="t">{{item.kind}}</view>
+        <view class="d">{{item.invoice_no}}</view>
+      </view>
+      <text class="badge {{item.status === '已结算' ? 'green' : (item.status === '待支付' ? 'amber' : 'red')}}">{{item.status}}</text>
+    </view>
+    <view class="d" style="margin-top:6rpx">{{item.visit_date}} · {{item.dentist_name}}</view>
+
+    <view style="margin-top:12rpx">
+      <view class="row" wx:for="{{item.lines}}" wx:for-item="l" wx:key="name" style="padding:4rpx 0">
+        <text class="muted">{{l.name}} × {{l.qty}}</text>
+        <text>{{l.amountText}}</text>
+      </view>
+    </view>
+
+    <view style="border-top:1rpx solid #eef3f4;margin-top:10rpx;padding-top:10rpx">
+      <view class="row"><text class="muted">总价</text><text class="price">{{item.totalText}}</text></view>
+      <view class="row"><text class="muted">已收（含定金）</text><text>{{item.paidText}}</text></view>
+      <view class="row"><text class="muted">待收</text><text>{{item.remainText}}</text></view>
+    </view>
+    <button class="btn small" style="margin-top:14rpx" wx:if="{{item.status === '待支付'}}"
+            data-item="{{item}}" bindtap="payNow">在线支付</button>
+  </view>
+
+  <view class="card" wx:if="{{plans.length}}">
+    <text class="card-title">分期计划</text>
+    <view class="list-item" wx:for="{{plans}}" wx:key="inst_plan_id">
+      <view class="row">
+        <view>
+          <view class="t">{{item.mode}} · {{item.periods}} 期</view>
+          <view class="d">{{item.plan_no}} · 首付 {{item.downText}} · 每期 {{item.perText}}</view>
+        </view>
+        <text class="badge {{item.status === '待支付' ? 'amber' : 'green'}}">{{item.status}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{!loading && !invoices.length}}">还没有结算单</view>
+</view>

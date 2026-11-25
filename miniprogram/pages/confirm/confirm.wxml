@@ -1,0 +1,40 @@
+<view class="wrap">
+  <view class="steps">
+    <text class="s">1 项目</text><text class="s">2 医生</text>
+    <text class="s">3 时段</text><text class="s on">4 确认</text><text class="s">5 支付</text>
+  </view>
+
+  <view class="card">
+    <text class="card-title">预约信息</text>
+    <view class="row"><text class="muted">项目</text><text>{{form.item_name}}</text></view>
+    <view class="row"><text class="muted">医生</text><text>{{form.dentist_name}}</text></view>
+    <view class="row"><text class="muted">时间</text><text>{{form.date}} {{form.start_time}}</text></view>
+    <view class="row"><text class="muted">门诊</text><text>{{form.clinic_name}}</text></view>
+    <view class="row" style="margin-top:10rpx"><text class="muted">目录价</text><text>{{priceText}}</text></view>
+    <view class="row"><text class="muted">本次定金（10%）</text><text class="price">{{depositText}}</text></view>
+  </view>
+
+  <view class="card">
+    <text class="card-title">过敏史核对（逐项登记）</text>
+    <view class="chips">
+      <text class="chip {{checked.indexOf(item) >= 0 ? 'on' : ''}}"
+            wx:for="{{allergens}}" wx:key="*this" data-value="{{item}}" bindtap="toggle">{{item}}</text>
+    </view>
+    <view class="rule">过敏史是处方与材料选择的数据基础，医生端开方时会再次硬校验。</view>
+  </view>
+
+  <view class="card">
+    <text class="card-title">特殊需求（选填）</text>
+    <textarea class="textarea" placeholder="如：怕痛，希望使用无痛麻醉；需一楼诊室" bindinput="onNote"></textarea>
+  </view>
+
+  <view class="card" style="background:#f7fbfa">
+    <view class="rule" style="border:0;padding:0">
+      提交后系统校验：医生同时段无冲突、班次余量充足、您同时段无重复预约、医生资质覆盖所选项目。
+      校验通过即锁号并生成定金单，15 分钟内完成支付，否则号源自动释放。
+    </view>
+  </view>
+
+  <button class="btn" bindtap="submit" disabled="{{submitting}}">确认预约并支付定金 {{depositText}}</button>
+  <view style="height:40rpx"></view>
+</view>

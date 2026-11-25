@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>登录 · 牙科诊所诊疗信息平台</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-hero">
+    <div>
+      <div class="brand" style="padding:0 0 30px">
+        <div class="brand-mark">齿</div>
+        <div class="brand-txt"><strong style="color:#fff">牙科诊所诊疗信息平台</strong>
+          <span style="color:rgba(255,255,255,.7)">一个总部 · 多家诊所 · 牙医轮岗</span></div>
+      </div>
+      <h1>把预约、诊疗、结算<br>装进同一套口径</h1>
+      <p style="margin-top:14px">从患者小程序自助预约，到牙位图结构化病历、在线支付与退款、分期台账、
+        每日对账与季度激励核算——每一笔事实都有流水，每一个状态都按状态机流转。</p>
+      <div class="hero-list">
+        <div class="hero-item"><span class="n">1</span><span>号源防超卖：条件更新 + 唯一约束，任一片被抢整体回滚</span></div>
+        <div class="hero-item"><span class="n">2</span><span>资质 × 档期匹配：线上线下一套推荐口径</span></div>
+        <div class="hero-item"><span class="n">3</span><span>处方过敏硬校验、知情同意 428 刚性拦截</span></div>
+        <div class="hero-item"><span class="n">4</span><span>支付幂等、先红冲后退款、折扣申请与审批分离</span></div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:rgba(255,255,255,.6)">
+      系统分析与设计课程作业 · 信管 2402 梁奉慈 1602240216
+    </div>
+  </div>
+
+  <div class="login-panel">
+    <div class="login-card">
+      <h2 style="font-size:20px">员工登录</h2>
+      <p class="muted" style="font-size:12.5px;margin-top:4px">五个角色对应五个工作台，权限按 4.12 权限矩阵分权。</p>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}<div class="flash {{ cat }}" style="margin-top:12px">{{ msg }}</div>{% endfor %}
+      {% endwith %}
+
+      <form method="post" style="margin-top:16px">
+        <div class="form-row">
+          <label class="lbl">账号</label>
+          <input type="text" name="username" placeholder="front1 / doc1 / fin1 / mgr1 / ops1" required>
+        </div>
+        <div class="form-row">
+          <label class="lbl">密码</label>
+          <input type="password" name="password" placeholder="123456" required>
+        </div>
+        <button class="btn btn-primary btn-block" style="margin-top:6px">进入工作台</button>
+      </form>
+
+      <div style="margin-top:14px;text-align:center">
+        <a class="btn btn-sm" href="{{ url_for('auth.patient_login') }}">患者端入口（微信小程序 H5 原型）</a>
+      </div>
+
+      <div class="demo-accounts">
+        <div class="section-title">演示账号（密码均为 123456）</div>
+        {% for a in accounts %}
+        <div class="acc"><span>{{ a.display_name }}</span><span class="mono">{{ a.username }} · {{ a.role }}</span></div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

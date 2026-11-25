@@ -1,0 +1,27 @@
+<view class="wrap">
+  <view class="card" wx:for="{{rows}}" wx:key="visit_id">
+    <view class="row">
+      <view>
+        <view class="t">{{item.visit_date}} {{item.start_time}}</view>
+        <view class="d">{{item.dentist_name}} · {{item.clinic_name}}</view>
+      </view>
+      <text class="badge {{item.statusType}}">{{item.status}}</text>
+    </view>
+    <view class="d" style="margin-top:8rpx">
+      来源 {{item.source}} · 结算单 {{item.totalText}}（已收 {{item.paidText}}）
+    </view>
+    <view class="chips" style="margin-top:14rpx">
+      <text class="chip" wx:if="{{item.status === '待支付'}}" data-item="{{item}}" bindtap="pay">去支付</text>
+      <text class="chip" wx:if="{{item.status === '待就诊'}}" data-item="{{item}}" bindtap="cancel">取消预约</text>
+      <text class="chip" bindtap="goReport">病历影像</text>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{!loading && !rows.length}}">还没有预约记录</view>
+
+  <view class="card" style="background:#f7fbfa">
+    <view class="rule" style="border:0;padding:0">
+      取消规则：就诊前 24 小时外全额退定金；24 小时内退 50%；未到店且未取消视为爽约，不退定金。
+    </view>
+  </view>
+</view>

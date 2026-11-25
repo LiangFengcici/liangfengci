@@ -1,0 +1,184 @@
+{% extends "base_staff.html" %}
+{% from "macros.html" import badge, kpi, empty %}
+{% set active = 'manager' %}
+{% block title %}经营看板{% endblock %}
+{% block crumb %}经营端 · 看板 / 排班 / 会员 / 库存 / 报表（4.8、4.9）{% endblock %}
+{% block heading %}经营看板{% endblock %}
+{% block actions %}
+  <a class="btn btn-sm" href="{{ url_for('staff.manager_schedule') }}">排班与号源</a>
+  <a class="btn btn-sm" href="{{ url_for('staff.export_csv', name='revenue') }}">营收 CSV</a>
+  <a class="btn btn-sm" href="{{ url_for('staff.export_csv', name='treatment') }}">项目 CSV</a>
+  <a class="btn btn-sm" href="{{ url_for('staff.export_csv', name='perf') }}">业绩 CSV</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-4" style="margin-bottom:16px">
+  {{ kpi('椅位使用率', '%.1f%%'|format(kpis.chair_use*100), '号源切片实际占用 / 全部切片', true) }}
+  {{ kpi('取消率', '%.1f%%'|format(kpis.cancel_rate*100), '主动取消 / 90 天预约总量') }}
+  {{ kpi('爽约率', '%.1f%%'|format(kpis.noshow_rate*100), '定时任务自动标记') }}
+  {{ kpi('线上预约占比', '%.1f%%'|format(kpis.online_rate*100), '目标：上线 6 个月 ≥30%') }}
+</div>
+<div class="grid grid-4" style="margin-bottom:16px">
+  {{ kpi('客单价', kpis.avg_ticket|money, '已结算实收 / 结算单数') }}
+  {{ kpi('复诊率', '%.1f%%'|format(kpis.repeat_rate*100), '90 天内 ≥2 次就诊占比') }}
+  {{ kpi('初诊转化率', '%.1f%%'|format(kpis.convert_rate*100), '初诊后产生结算单') }}
+  {{ kpi('累计实收', kpis.revenue|money, '全部成功支付流水') }}
+</div>
+
+<div class="grid grid-side">
+  <div>
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>本周排班与号源</h2></div>
+        <span class="sub">{{ week_days[0] }} — {{ week_days[-1] }} · 点“排班与号源”可维护</span></div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead>
+            <tr><th>日期</th>{% for d in week_days %}<th class="num">{{ d.strftime('%m-%d') }}<div class="muted" style="font-weight:400">{{ ['一','二','三','四','五','六','日'][loop.index0] }}</div></th>{% endfor %}</tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>班次数</b></td>
+              {% for d in week_days %}<td class="num">{{ grid[d.isoformat()]|length }}</td>{% endfor %}
+            </tr>
+            <tr>
+              <td><b>剩余号源</b></td>
+              {% for d in week_days %}
+              <td class="num">
+                {% set total = grid[d.isoformat()]|sum(attribute='free_slots') %}
+                <span class="badge {{ 'b-green' if total > 10 else ('b-amber' if total > 0 else 'b-gray') }}">{{ total }}</span>
+              </td>
+              {% endfor %}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="legend" style="margin-top:8px">
+        <span>号源 = 已发布班次（牙医 × 牙椅 × 时段）× 30 分钟切片</span>
+      </div>
+    </div>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-head"><div class="card-title"><span class="dot"></span><h2>医生产能与业绩</h2></div></div>
+        <div class="stack">
+          {% set maxrev = (dentist_rev|map(attribute='rev')|list|max) or 1 %}
+          {% for d in dentist_rev %}
+          <div>
+            <div class="row between" style="font-size:12.5px">
+              <b>{{ d.name }}</b><span>{{ d.rev|money }}<span class="muted"> · {{ d.cnt }} 诊</span></span>
+            </div>
+            <div class="bar" style="margin-top:3px"><i style="width:{{ (d.rev / maxrev * 100)|round(1) }}%"></i></div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title"><span class="dot"></span><h2>项目结构</h2></div></div>
+        <div class="stack">
+          {% set maxt = (cat_rev|map(attribute='rev')|list|max) or 1 %}
+          {% for c in cat_rev %}
+          <div>
+            <div class="row between" style="font-size:12.5px"><span>{{ c.name }}</span><span>{{ c.rev|money }}</span></div>
+            <div class="bar amber" style="margin-top:3px"><i style="width:{{ (c.rev / maxt * 100)|round(1) }}%"></i></div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card flush">
+      <div class="card-head" style="padding:16px 18px 10px;margin:0">
+        <div class="card-title"><span class="dot"></span><h2>季度业绩与激励基金</h2></div>
+        <span class="sub">净利润 = 已结算实收 − 病例耗材 − 分摊运营费用；基金 = 净利润 × 10%</span>
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>牙医</th><th>季度</th><th class="num">实收</th><th class="num">耗材成本</th>
+            <th class="num">分摊费用</th><th class="num">净利润</th><th class="num">激励基金</th></tr></thead>
+          <tbody>
+          {% for p in perf %}
+            <tr>
+              <td><b>{{ p.name }}</b></td>
+              <td>{{ p.year }} Q{{ p.quarter }}</td>
+              <td class="num">{{ p.revenue_cents|money }}</td>
+              <td class="num">{{ p.material_cents|money }}</td>
+              <td class="num">{{ p.expense_cents|money }}</td>
+              <td class="num"><b>{{ p.profit_cents|money }}</b></td>
+              <td class="num" style="color:#0f766e"><b>{{ p.fund_cents|money }}</b></td>
+            </tr>
+          {% else %}<tr><td colspan="7">{{ empty('尚未汇总，执行定时任务后生成') }}</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card flush">
+      <div class="card-head" style="padding:16px 18px 10px;margin:0">
+        <div class="card-title"><span class="dot"></span><h2>日营收（诊所 × 日）</h2></div>
+        <span class="sub">每日 02:00 对账任务自动生成</span>
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>日期</th><th>诊所</th><th class="num">应收</th><th class="num">实收</th><th class="num">退款</th><th class="num">差异</th></tr></thead>
+          <tbody>
+          {% for r in revenues %}
+            <tr><td>{{ r.rev_date }}</td><td>{{ r.clinic_name }}</td>
+              <td class="num">{{ r.receivable_cents|money }}</td>
+              <td class="num">{{ r.received_cents|money }}</td>
+              <td class="num">{{ r.refund_cents|money }}</td>
+              <td class="num">{% if r.diff_cents %}<span class="badge b-amber">{{ r.diff_cents|money }}</span>{% else %}<span class="badge b-green">平</span>{% endif %}</td></tr>
+          {% else %}<tr><td colspan="6">{{ empty() }}</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>库存与院感预警</h2></div>
+        <span class="sub">过期包须重新灭菌</span></div>
+      {% for p in packs if p.status != '可用' or p.expire_at < today %}
+        <div class="row between" style="padding:6px 0;border-bottom:1px dashed var(--line-2)">
+          <div><b style="font-size:12.5px">{{ p.pack_no }}</b>
+            <div class="muted" style="font-size:11px">{{ p.clinic_name }} · 至 {{ p.expire_at }}</div></div>
+          {% if p.expire_at < today %}<span class="badge b-red">已过期</span>{% else %}{{ badge(p.status) }}{% endif %}
+        </div>
+      {% else %}{{ empty('全部器械包在有效期内') }}{% endfor %}
+      <div class="rule">器械包按灭菌批次管理，包—就诊关联形成院感追溯链（pack_trace）。</div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>会员运营</h2></div>
+        <span class="sub">1 元 = 1 分</span></div>
+      <div class="table-wrap"><table class="tbl">
+        <thead><tr><th>患者</th><th>等级</th><th class="num">积分</th><th class="num">到店</th></tr></thead>
+        <tbody>
+        {% for m in members %}
+          <tr><td>{{ m.name }}<div class="muted" style="font-size:11px">{{ m.source }}</div></td>
+            <td><span class="badge {{ 'b-amber' if m.level=='金卡' else 'b-gray' }}">{{ m.level }}</span></td>
+            <td class="num">{{ m.points }}</td><td class="num">{{ m.visits }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>运营费用</h2></div></div>
+      {% for e in expenses %}
+        <div class="row between" style="font-size:12px;padding:4px 0;border-bottom:1px dashed var(--line-2)">
+          <span>{{ e.month }} · {{ e.clinic_name }} · {{ e.item }}</span><span>{{ e.amount_cents|money }}</span>
+        </div>
+      {% else %}{{ empty() }}{% endfor %}
+      <div class="rule">运营费用按“诊所 × 月”登记，按该医生当月已结算金额占比分摊到人。</div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>连锁授权</h2></div></div>
+      <div class="rule">高新园区诊所未获种植项目授权，小程序不出现种植号源；门店差异价在总部目录价基础上浮动。</div>
+      <a class="btn btn-sm btn-block" href="{{ url_for('staff.ops') }}">前往主数据维护</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

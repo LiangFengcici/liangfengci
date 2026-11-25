@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>患者端体验入口 · 牙科诊所诊疗信息平台</title>
+<style>
+  :root{
+    --brand:#0f766e; --brand-soft:#ccfbf1; --ink:#0f172a; --sub:#64748b;
+    --line:#e2e8f0; --warn-bg:#fffbeb; --warn-line:#fcd34d; --warn-ink:#92400e;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{
+    margin:0;padding:28px 18px 40px;background:#f8fafc;color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    line-height:1.65;
+  }
+  .wrap{max-width:520px;margin:0 auto}
+  .head{text-align:center;margin-bottom:22px}
+  .badge{
+    display:inline-block;font-size:12px;letter-spacing:.12em;color:var(--brand);
+    background:var(--brand-soft);padding:4px 12px;border-radius:999px;margin-bottom:12px;
+  }
+  h1{font-size:21px;margin:0 0 6px;letter-spacing:.01em}
+  .sub{font-size:13px;color:var(--sub);margin:0}
+  .card{
+    background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px 20px;
+    box-shadow:0 1px 2px rgba(15,23,42,.04),0 12px 28px -18px rgba(15,23,42,.28);
+  }
+  .qrbox{
+    display:flex;align-items:center;justify-content:center;min-height:280px;
+    background:#fbfdff;border:1px dashed #cbd5e1;border-radius:14px;padding:16px;
+  }
+  .qrbox img{width:100%;max-width:300px;height:auto;display:block;border-radius:8px}
+  .empty{text-align:center;color:var(--sub);font-size:13px;padding:24px 12px}
+  .empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:6px}
+  .tip{font-size:12.5px;color:var(--sub);text-align:center;margin:12px 0 0}
+  .steps{margin:22px 0 0;padding:0;list-style:none;counter-reset:s}
+  .steps li{
+    position:relative;padding:10px 0 10px 38px;font-size:14px;border-top:1px solid #f1f5f9;counter-increment:s;
+  }
+  .steps li:first-child{border-top:0}
+  .steps li::before{
+    content:counter(s);position:absolute;left:0;top:12px;width:22px;height:22px;border-radius:50%;
+    background:var(--brand);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;
+  }
+  .warn{
+    margin-top:20px;background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:12px;
+    padding:14px 16px;font-size:13px;color:var(--warn-ink);
+  }
+  .warn b{display:block;margin-bottom:4px}
+  .foot{margin-top:24px;text-align:center;font-size:13px;color:var(--sub)}
+  .foot a{color:var(--brand);text-decoration:none;border-bottom:1px solid rgba(15,118,110,.35);word-break:break-all}
+  .meta{margin-top:18px;text-align:center;font-size:11.5px;color:#94a3b8}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="badge">PATIENT APP · 患者端</div>
+    <h1>牙科诊所诊疗信息平台</h1>
+    <p class="sub">微信扫码进入患者端（体验版）</p>
+  </div>
+
+  <div class="card">
+    <div class="qrbox" id="qrbox">
+      <div class="empty" id="empty">
+        <b>二维码尚未上传</b>
+        请把当前有效的体验版二维码另存为 <code>qr.png</code>，<br>上传到本站 <code>/static/</code> 目录下。
+      </div>
+      <img id="qr" alt="小程序体验版二维码" style="display:none">
+    </div>
+    <p class="tip">扫码后如提示「离线演示模式」，点右上角「···」→「打开调试」再进一次即可</p>
+
+    <ol class="steps">
+      <li>用微信「扫一扫」扫描上方二维码</li>
+      <li>首次进入若提示无权限，请先联系作者把您的微信号加入体验成员</li>
+      <li>进入成功后，可从微信首页下拉的「最近使用」直接再次打开，无需再扫码</li>
+    </ol>
+
+    <div class="warn">
+      <b>关于二维码有效期</b>
+      体验版本身不设过期时间，但体验版二维码有效期约 7 天。
+      若扫码提示「体验码已过期」，说明页面这张图需要更新——请稍后再刷新本页；已完成首次进入的评审者，
+      从小程序列表直接打开不受影响。
+    </div>
+  </div>
+
+  <p class="foot">
+    员工端（网页版）：<br>
+    <a href="/login">https://liangfengci.pythonanywhere.com/login</a>
+  </p>
+  <p class="meta" id="meta"></p>
+</div>
+
+<script>
+(function () {
+  var img = document.getElementById('qr');
+  var empty = document.getElementById('empty');
+  var stamp = Date.now();
+  img.onload = function () {
+    img.style.display = 'block';
+    empty.style.display = 'none';
+  };
+  img.onerror = function () {
+    img.style.display = 'none';
+    empty.style.display = 'block';
+  };
+  img.src = '/static/qr.png?v=' + stamp;
+  document.getElementById('meta').textContent =
+    '页面加载于 ' + new Date(stamp).toLocaleString('zh-CN', { hour12: false });
+})();
+</script>
+</body>
+</html>

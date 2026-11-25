@@ -1,0 +1,17 @@
+<view class="wrap">
+  <view class="card">
+    <text class="card-title">影像索引</text>
+    <view class="list-item" wx:for="{{rows}}" wx:key="image_id">
+      <view class="row">
+        <view>
+          <view class="t">{{item.type}} · {{item.fdi || '全口'}}</view>
+          <view class="d">{{item.finding || '未见异常'}}</view>
+          <view class="d">{{item.dentist_name}} · {{item.visit_date}}</view>
+        </view>
+        <text class="badge teal">{{item.dateText}}</text>
+      </view>
+    </view>
+    <view class="empty" wx:if="{{!loading && !rows.length}}">暂无影像</view>
+    <view class="rule">影像原件存对象存储，系统内只存索引；调阅页默认脱敏，不在本地缓存。</view>
+  </view>
+</view>

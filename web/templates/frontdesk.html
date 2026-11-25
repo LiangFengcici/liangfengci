@@ -1,0 +1,281 @@
+{% extends "base_staff.html" %}
+{% from "macros.html" import badge, kpi, empty %}
+{% set active = 'frontdesk' %}
+{% block title %}前台接待工作台{% endblock %}
+{% block crumb %}前台接待 · 候诊队列与到店登记（UC1—UC3、UC7 发起、UC9 办理）{% endblock %}
+{% block heading %}前台接待工作台 · {{ day }}{% endblock %}
+{% block actions %}
+  <form method="get" class="row" style="gap:6px">
+    <input type="date" name="day" value="{{ day }}" style="width:150px">
+    <button class="btn btn-sm">切换日期</button>
+  </form>
+  <a class="btn btn-primary" href="{{ url_for('staff.frontdesk_booking') }}">＋ 新建预约</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-4" style="margin-bottom:16px">
+  {{ kpi('今日预约', stats.total, '含线上与到店，同一号源池', true) }}
+  {{ kpi('已到店', stats.arrived, '到店登记后进入候诊') }}
+  {{ kpi('待就诊', stats.waiting, '未完成的就诊记录') }}
+  {{ kpi('取消率', stats.cancel_rate, '线上占比 ' ~ (stats.online ~ '/' ~ stats.total)) }}
+</div>
+
+<div class="grid grid-side">
+  <div>
+    <div class="card flush">
+      <div class="card-head" style="padding:16px 18px 10px;margin:0">
+        <div class="card-title"><span class="dot"></span><h2>候诊队列</h2>
+          <span class="badge b-gray">{{ queue|length }} 条</span></div>
+        <span class="sub">到店登记 → 医生接诊 → 治疗完成 → 诊毕结算</span>
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead>
+            <tr><th>时段</th><th>患者</th><th>牙医 / 牙椅</th><th>状态</th><th>过敏</th>
+                <th class="num">治疗项</th><th class="num">结算单</th><th>操作</th></tr>
+          </thead>
+          <tbody>
+          {% for v in queue %}
+            <tr>
+              <td class="nowrap"><b>{{ v.start_time }}</b><div class="muted" style="font-size:11px">{{ v.end_time }}</div></td>
+              <td>
+                <b>{{ v.patient_name }}</b>
+                {% if v.source == '在线' %}<span class="badge b-teal" style="margin-left:4px">线上</span>{% endif %}
+                <div class="muted" style="font-size:11px">{{ v.phone }} · 爽约 {{ v.no_show_cnt }} 次</div>
+              </td>
+              <td>{{ v.dentist_name }}<div class="muted" style="font-size:11px">{{ v.clinic_name }} · {{ v.chair_name or '未分配' }}</div></td>
+              <td>{{ badge(v.status) }}{% if v.is_arrived %}<div class="muted" style="font-size:11px">已到店</div>{% endif %}</td>
+              <td>
+                {% if v.allergens %}
+                  <span class="badge b-red">{{ v.allergens }}</span>
+                {% else %}<span class="muted" style="font-size:11.5px">无</span>{% endif %}
+              </td>
+              <td class="num">{{ v.tcnt }}</td>
+              <td class="num">
+                {% if v.invoice_id %}
+                  <a href="#" onclick="return false" class="mono">{{ v.invoice_no }}</a>
+                  <div class="muted" style="font-size:11px">{{ v.inv_status }} · {{ v.total_cents|money }}</div>
+                {% else %}<span class="muted">—</span>{% endif %}
+              </td>
+              <td>
+                <div class="chip-row">
+                  {% if v.status == '待就诊' and not v.is_arrived %}
+                  <form method="post" action="{{ url_for('staff.arrive', vid=v.visit_id) }}">
+                    <button class="btn btn-sm">到店登记</button>
+                  </form>
+                  {% endif %}
+                  {% if v.status == '待就诊' %}
+                  <details class="inline" style="padding:0">
+                    <summary class="btn btn-sm" style="border:0;background:transparent">改期</summary>
+                    <form method="post" action="{{ url_for('staff.reschedule', vid=v.visit_id) }}" style="margin-top:8px;width:230px">
+                      <input type="date" name="day" value="{{ day }}" required>
+                      <input type="time" name="start_time" value="{{ v.start_time }}" required style="margin-top:6px">
+                      <select name="dentist_id" style="margin-top:6px">
+                        {% for d in dentists %}<option value="{{ d.dentist_id }}" {{ 'selected' if d.dentist_id==v.dentist_id }}>{{ d.name }}</option>{% endfor %}
+                      </select>
+                      <button class="btn btn-sm btn-primary" style="margin-top:6px;width:100%">提交改期</button>
+                    </form>
+                  </details>
+                  <details class="inline" style="padding:0">
+                    <summary class="btn btn-sm btn-danger" style="border:0">取消</summary>
+                    <form method="post" action="{{ url_for('staff.cancel', vid=v.visit_id) }}" style="margin-top:8px;width:230px">
+                      <select name="cancel_type"><option>主动取消</option><option>停诊取消</option></select>
+                      <input type="text" name="reason" placeholder="取消原因（留痕）" style="margin-top:6px">
+                      <button class="btn btn-sm btn-danger" style="margin-top:6px;width:100%">确认取消并退定金</button>
+                      <div class="help">24h 外全退 / 24h 内退 50% / 爽约不退</div>
+                    </form>
+                  </details>
+                  {% endif %}
+                  {% if v.status in ('已完成','待支付') %}
+                  <a class="btn btn-sm" href="{{ url_for('staff.doctor_visit', vid=v.visit_id) }}">进入病历</a>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="8">{{ empty('今天还没有预约，点右上角“新建预约”开始') }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-head"><div class="card-title"><span class="dot"></span><h2>复诊召回</h2></div>
+          <span class="sub">定时任务每日推送</span></div>
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead><tr><th>到期</th><th>患者</th><th>项目</th><th>状态</th></tr></thead>
+            <tbody>
+            {% for r in recalls %}
+              <tr>
+                <td class="nowrap">{{ r.due_date }}</td>
+                <td>{{ r.patient_name }}<div class="muted" style="font-size:11px">{{ r.phone }}</div></td>
+                <td>{{ r.item_name or '—' }}</td>
+                <td>{{ badge(r.status) }}</td>
+              </tr>
+            {% else %}<tr><td colspan="4">{{ empty() }}</td></tr>{% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title"><span class="dot"></span><h2>候补等位</h2></div>
+          <span class="sub">号源释放按顺序补位</span></div>
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead><tr><th>患者</th><th>班次</th><th>项目</th><th>状态</th></tr></thead>
+            <tbody>
+            {% for w in waitlist %}
+              <tr>
+                <td>{{ w.patient_name }}</td>
+                <td>{{ w.shift_date }} {{ w.start_time }}<div class="muted" style="font-size:11px">{{ w.dentist_name }}</div></td>
+                <td>{{ w.item_name or '—' }}</td>
+                <td>{{ badge(w.status) }}</td>
+              </tr>
+            {% else %}<tr><td colspan="4">{{ empty('暂无候补') }}</td></tr>{% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <form method="post" action="{{ url_for('staff.waitlist_add') }}" style="margin-top:10px">
+          <div class="form-row cols-2">
+            <div>
+              <label class="lbl">患者</label>
+              <select name="patient_id">{% for p in patients %}<option value="{{ p.patient_id }}">{{ p.name }}</option>{% endfor %}</select>
+            </div>
+            <div>
+              <label class="lbl">项目</label>
+              <select name="catalog_id">
+                {% for g in catalog_groups %}{% for it in g['items'] %}
+                  <option value="{{ it.catalog_id }}">{{ it.name }}</option>
+                {% endfor %}{% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <label class="lbl">目标班次</label>
+            <select name="shift_id">
+              {% for s in shifts %}
+              <option value="{{ s.shift_id }}">{{ s.shift_date }} {{ s.start_time }}-{{ s.end_time }} · {{ s.dentist_name }} · {{ s.clinic_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button class="btn btn-sm btn-block">登记候补</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>器械消毒追溯</h2></div>
+        <span class="sub">包—就诊关联，7 天有效期过期拦截（V9）</span></div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>包号</th><th>灭菌批次</th><th>诊所</th><th>有效期</th><th>状态</th><th>领用</th></tr></thead>
+          <tbody>
+          {% for p in packs %}
+            <tr>
+              <td class="mono">{{ p.pack_no }}</td>
+              <td>{{ p.batch_no }}</td>
+              <td>{{ p.clinic_name }}</td>
+              <td>{{ p.expire_at }}
+                {% if p.expire_at < today %}<span class="badge b-red" style="margin-left:4px">已过期</span>{% endif %}</td>
+              <td>{{ badge(p.status) }}</td>
+              <td>
+                <form method="post" action="{{ url_for('staff.pack_use') }}" class="row" style="gap:6px">
+                  <input type="hidden" name="pack_id" value="{{ p.pack_id }}">
+                  <select name="visit_id" style="width:150px">
+                    {% for v in queue %}{% if v.status in ('待就诊','已完成') %}
+                    <option value="{{ v.visit_id }}">{{ v.start_time }} {{ v.patient_name }}</option>
+                    {% endif %}{% endfor %}
+                  </select>
+                  <button class="btn btn-sm">领用</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}<tr><td colspan="6">{{ empty('暂无可用器械包') }}</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>收款与退款</h2></div></div>
+      <div class="rule">收款与退款分权：前台可发起退款，审核在诊所经理、执行在财务（4.12）。</div>
+      <div class="stack" style="margin-top:8px">
+        {% for p in pays[:6] %}
+        <div style="border:1px solid var(--line-2);border-radius:9px;padding:9px 11px">
+          <div class="row between">
+            <b style="font-size:12.5px">{{ p.patient_name }}</b>
+            <span class="mono" style="font-size:11.5px">{{ p.pay_no }}</span>
+          </div>
+          <div class="muted" style="font-size:11.5px">
+            {{ p.method }} · {{ p.amount_cents|money }} · 已退 {{ (p.refunded or 0)|money }}
+          </div>
+          <form method="post" action="{{ url_for('staff.refund_apply') }}" class="row" style="margin-top:6px;gap:6px">
+            <input type="hidden" name="pay_id" value="{{ p.pay_id }}">
+            <input type="number" step="0.01" name="amount" placeholder="退款金额"
+                   value="{{ ((p.amount_cents - (p.refunded or 0))/100)|round(2) }}" style="width:96px">
+            <input type="text" name="reason" placeholder="原因" style="flex:1">
+            <button class="btn btn-sm btn-danger">退</button>
+          </form>
+        </div>
+        {% else %}{{ empty('暂无成功流水') }}{% endfor %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>办理分期 / 套餐</h2></div>
+        <span class="sub">UC9</span></div>
+      <form method="post" action="{{ url_for('staff.installment_create') }}">
+        <div class="form-row">
+          <label class="lbl">患者</label>
+          <select name="patient_id">{% for p in patients %}<option value="{{ p.patient_id }}">{{ p.name }}（{{ p.phone }}）</option>{% endfor %}</select>
+        </div>
+        <div class="form-row cols-2">
+          <div><label class="lbl">治疗方案总价（元）</label><input type="number" step="0.01" name="total" value="8800" required></div>
+          <div><label class="lbl">收费模式</label>
+            <select name="mode"><option>分期</option><option>套餐</option><option>次卡</option><option>储值</option></select></div>
+        </div>
+        <div class="form-row cols-2">
+          <div><label class="lbl">期数</label><input type="number" name="periods" value="6" min="1" max="24"></div>
+          <div><label class="lbl">首付比例（%）</label><input type="number" name="down_rate" value="30"></div>
+        </div>
+        <div class="form-row">
+          <label class="lbl">协议签署人</label>
+          <input type="text" name="signer" placeholder="患者本人姓名">
+        </div>
+        <button class="btn btn-primary btn-block">试算并生成收款计划</button>
+        <div class="help">Σ期款 + 首付 = 总价；首期支付成功前不得开始治疗。</div>
+      </form>
+      <div class="divider"></div>
+      <div class="section-title">进行中的计划</div>
+      {% for p in plans %}
+        <div class="row between" style="padding:6px 0;border-bottom:1px dashed var(--line-2)">
+          <div>
+            <b style="font-size:12.5px">{{ p.patient_name }}</b>
+            <div class="muted" style="font-size:11px">{{ p.mode }} · {{ p.periods }} 期 · 每期 {{ p.per_cents|money }}</div>
+          </div>
+          {{ badge(p.status) }}
+        </div>
+      {% else %}{{ empty('暂无收款计划') }}{% endfor %}
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>退款待办</h2></div></div>
+      {% for r in refunds if r.status != '已退回' %}
+        <div class="row between" style="padding:7px 0;border-bottom:1px dashed var(--line-2)">
+          <div>
+            <b style="font-size:12.5px">{{ r.patient_name }}</b>
+            <div class="muted" style="font-size:11px">{{ r.refund_no }} · {{ r.amount_cents|money }} · {{ r.reason }}</div>
+          </div>
+          {{ badge(r.status) }}
+        </div>
+      {% else %}{{ empty('没有待处理退款') }}{% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends "base_staff.html" %}
+{% from "macros.html" import badge, empty %}
+{% set active = 'schedule' %}
+{% block title %}排班与号源{% endblock %}
+{% block crumb %}经营端 · 维护排班计划（UC6：班次 × 牙椅 × 资质 → 生成线上号源）{% endblock %}
+{% block heading %}排班与号源 · {{ day }} 周{% endblock %}
+{% block actions %}
+  <form method="get" class="row" style="gap:6px">
+    <input type="date" name="day" value="{{ day }}" style="width:150px">
+    <button class="btn btn-sm">定位周</button>
+  </form>
+  <a class="btn btn-sm" href="{{ url_for('staff.manager') }}">返回看板</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid" style="grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;align-items:start">
+  {% for d in week_days %}
+  <div class="card" style="padding:12px;margin:0;min-height:240px">
+    <div class="row between" style="margin-bottom:8px">
+      <b style="font-size:13px">{{ d.strftime('%m-%d') }}</b>
+      <span class="badge b-gray">{{ ['一','二','三','四','五','六','日'][loop.index0] }}</span>
+    </div>
+    {% for s in grid[d.isoformat()] %}
+      <div style="border:1px solid var(--line-2);border-radius:9px;padding:7px 8px;margin-bottom:7px;background:{{ '#fdf3e2' if s.status=='停诊' else '#fff' }}">
+        <div class="row between">
+          <b style="font-size:12px">{{ s.dentist_name }}</b>
+          {{ badge(s.status) }}
+        </div>
+        <div class="muted" style="font-size:11px">{{ s.start_time }}–{{ s.end_time }} · {{ s.chair_name }}</div>
+        <div class="muted" style="font-size:11px">{{ s.clinic_name }}</div>
+        <div class="row between" style="margin-top:4px">
+          <span class="badge {{ 'b-green' if s.free_slots else 'b-gray' }}">{{ s.free_slots }}/{{ s.total_slots }} 空闲</span>
+          {% if s.status == '已发布' %}
+          <form method="post" action="{{ url_for('staff.suspend_shift', sid=s.shift_id) }}"
+                onsubmit="return confirm('停诊将下架号源并自动取消关联预约、按 UC7 退回定金，确认？')">
+            <button class="btn btn-sm btn-danger" style="padding:2px 7px;font-size:11px">停诊</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    {% else %}
+      <div class="muted" style="font-size:11.5px;padding:6px 0">无班次</div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>
+
+<div class="grid grid-side" style="margin-top:16px">
+  <div class="card">
+    <div class="card-head"><div class="card-title"><span class="dot"></span><h2>新建班次</h2></div>
+      <span class="sub">保存即发布，号源同步小程序</span></div>
+    <form method="post" action="{{ url_for('staff.create_shift') }}">
+      <div class="form-row cols-3">
+        <div><label class="lbl">日期</label><input type="date" name="day" value="{{ day }}" required></div>
+        <div><label class="lbl">开始</label><input type="time" name="start_time" value="09:00" required></div>
+        <div><label class="lbl">结束</label><input type="time" name="end_time" value="12:00" required></div>
+      </div>
+      <div class="form-row cols-3">
+        <div><label class="lbl">诊所</label>
+          <select name="clinic_id">{% for c in clinics %}<option value="{{ c.clinic_id }}">{{ c.name }}</option>{% endfor %}</select></div>
+        <div><label class="lbl">牙医</label>
+          <select name="dentist_id">{% for d in dentists %}<option value="{{ d.dentist_id }}">{{ d.name }} · {{ d.title }}</option>{% endfor %}</select></div>
+        <div><label class="lbl">牙椅</label>
+          <select name="chair_id">{% for ch in chairs %}<option value="{{ ch.chair_id }}">{{ ch.clinic_name }} · {{ ch.name }}</option>{% endfor %}</select></div>
+      </div>
+      <button class="btn btn-primary">校验并发布班次</button>
+      <div class="rule">校验三层：① 牙医资质覆盖可约项目 ② 牙医同时段无其他班次 ③ 牙椅未被占用。任一不过即拒绝保存。</div>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-title"><span class="dot"></span><h2>排班约束</h2></div></div>
+    <div class="rule">号源按项目标准时长切片：洁治/复诊 1 片，根管 2 片，种植 3 片；预约占用连续 N 片。</div>
+    <div class="rule">已发布班次的可预约数被扣减后不允许为负（条件更新 + 唯一约束）。</div>
+    <div class="rule">停诊必须留痕：原班次记录保留、状态置停诊，不允许物理删除。</div>
+    <div class="rule">停诊级联：号源下架 → 关联预约自动取消 → 定金按 UC7 规则批量退回 → 服务号通知患者。</div>
+    <div class="rule">候补：号源释放时按登记顺序自动补位并推送确认。</div>
+  </div>
+</div>
+{% endblock %}

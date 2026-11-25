@@ -1,0 +1,32 @@
+<view class="wrap">
+  <view class="steps">
+    <text class="s">1 项目</text><text class="s">2 医生</text>
+    <text class="s on">3 时段</text><text class="s">4 确认</text><text class="s">5 支付</text>
+  </view>
+
+  <view class="card">
+    <view class="row">
+      <text class="card-title" style="margin:0">{{dentistName}}</text>
+      <text class="badge teal">{{itemName}}</text>
+    </view>
+    <view class="d" style="margin-top:8rpx">{{day}} · 30 分钟切片，按项目时长连续占用</view>
+  </view>
+
+  <view class="card">
+    <text class="label">可选时段（实时余量）</text>
+    <view class="slot-grid">
+      <view class="slot {{selected.start_time === item.start_time ? 'on' : ''}}"
+            wx:for="{{wins}}" wx:key="start_time" data-item="{{item}}" bindtap="pick">
+        {{item.start_time}}
+      </view>
+      <view class="empty" style="grid-column:span 3" wx:if="{{!loading && !wins.length}}">该医生当天已无连续号源</view>
+    </view>
+    <view class="rule">号源页只做展示，不本地锁位；提交订单时以后端条件更新为准。</view>
+  </view>
+
+  <view class="card">
+    <view class="row"><text class="muted">目录价</text><text class="price">{{priceText}}</text></view>
+    <view class="row"><text class="muted">需付定金</text><text class="price">{{depositText}}</text></view>
+    <button class="btn" style="margin-top:20rpx" bindtap="next">下一步：确认订单</button>
+  </view>
+</view>

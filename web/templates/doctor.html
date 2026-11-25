@@ -1,0 +1,84 @@
+{% extends "base_staff.html" %}
+{% from "macros.html" import badge, kpi, empty %}
+{% set active = 'doctor' %}
+{% block title %}我的诊室{% endblock %}
+{% block crumb %}医生工作站 · {{ me.name }} {{ me.title }}{% endblock %}
+{% block heading %}我的诊室 · {{ day }}{% endblock %}
+{% block actions %}
+  <form method="get" class="row" style="gap:6px">
+    <input type="date" name="day" value="{{ day }}" style="width:150px">
+    <button class="btn btn-sm">切换日期</button>
+  </form>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-4" style="margin-bottom:16px">
+  {{ kpi('今日排诊', stats.today, '含待就诊与已完成', true) }}
+  {{ kpi('待接诊', stats.waiting, '到店登记后可直接开诊') }}
+  {{ kpi('已完成', stats.done, '含待支付与已结算') }}
+  {{ kpi('资质', me.title, me.intro or '—') }}
+</div>
+
+<div class="grid grid-side">
+  <div class="card flush">
+    <div class="card-head" style="padding:16px 18px 10px;margin:0">
+      <div class="card-title"><span class="dot"></span><h2>今日诊序</h2></div>
+      <span class="sub">点击进入牙位图工作区（UC8）</span>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead><tr><th>时段</th><th>患者</th><th>过敏</th><th>状态</th><th class="num">治疗项</th>
+          <th class="num">结算</th><th>操作</th></tr></thead>
+        <tbody>
+        {% for v in visits %}
+          <tr>
+            <td class="nowrap"><b>{{ v.start_time }}</b><div class="muted" style="font-size:11px">{{ v.end_time }}</div></td>
+            <td><b>{{ v.patient_name }}</b>
+              {% if v.allergens %}<div><span class="badge b-red" style="margin-top:3px">过敏：{{ v.allergens }}</span></div>{% endif %}
+              <div class="muted" style="font-size:11px">{{ v.gender }} · {{ v.birth_date }} · {{ v.phone }}</div>
+            </td>
+            <td>{% if v.allergens %}<span class="badge b-red">需核对</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+            <td>{{ badge(v.status) }}{% if v.is_arrived %}<div class="muted" style="font-size:11px">已到店</div>{% endif %}</td>
+            <td class="num">{{ v.tcnt }}</td>
+            <td class="num">
+              {% if v.invoice_id %}{{ v.inv_status }}<div class="muted" style="font-size:11px">{{ v.total_cents|money }}</div>{% else %}—{% endif %}
+            </td>
+            <td>
+              <a class="btn btn-sm btn-primary" href="{{ url_for('staff.doctor_visit', vid=v.visit_id) }}">开诊 / 病历</a>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7">{{ empty('今日无排诊') }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>待结算 / 待收款</h2></div></div>
+      {% for v in pending %}
+        <div class="row between" style="padding:7px 0;border-bottom:1px dashed var(--line-2)">
+          <div>
+            <b style="font-size:12.5px">{{ v.patient_name }}</b>
+            <div class="muted" style="font-size:11px">{{ v.visit_date }} {{ v.start_time }} · {{ v.tcnt }} 个治疗项</div>
+          </div>
+          <div class="row" style="gap:6px">
+            {{ badge(v.status) }}
+            <a class="btn btn-sm" href="{{ url_for('staff.doctor_visit', vid=v.visit_id) }}">处理</a>
+          </div>
+        </div>
+      {% else %}{{ empty('没有待处理就诊') }}{% endfor %}
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>牙位记录规范</h2></div></div>
+      <div class="rule">牙位状况必须挂接具体牙位与牙面，不允许只写自由文本（UC8 业务规则）。</div>
+      <div class="rule">任一位点 PD≥4 自动生成牙周治疗计划项并标红提示。</div>
+      <div class="rule">处方必须通过过敏史与配伍禁忌校验；麻醉药品需专册登记号 + 双人核对。</div>
+      <div class="rule">种植 / 拔牙 / 根管 / 正畸类就诊未签知情同意书时，诊毕结算返回 428。</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+<view class="wrap">
+  <view class="card">
+    <view class="row">
+      <text class="card-title" style="margin:0">{{catName}}</text>
+      <text class="muted">8 类项目 · 目录价即线上价</text>
+    </view>
+  </view>
+
+  <view class="card" wx:for="{{items}}" wx:key="catalog_id">
+    <view class="row">
+      <view>
+        <view class="t">{{item.name}}</view>
+        <view class="d">{{item.intro}}</view>
+        <view class="chips" style="margin-top:10rpx">
+          <text class="chip">约 {{item.minutes}} 分钟</text>
+          <text class="chip" wx:if="{{item.requires_consent}}">需签知情同意书</text>
+        </view>
+      </view>
+      <view style="text-align:right;white-space:nowrap">
+        <view class="price">{{item.priceText}}</view>
+        <view class="d">定金 {{item.deposit}}</view>
+      </view>
+    </view>
+    <button class="btn small" style="margin-top:16rpx" data-item="{{item}}" bindtap="goDentists">选择医生与时段</button>
+  </view>
+</view>

@@ -1,0 +1,56 @@
+<view class="hero">
+  <view class="hi">你好，{{ patient ? patient.name : '患者' }}</view>
+  <view class="title">按项目选医生，线上约号</view>
+  <view class="allergy" wx:if="{{allergies.length}}">过敏史：{{allergies}} · 已同步医生端</view>
+  <view class="allergy" wx:else>未登记过敏史 · 预约时可补录</view>
+
+  <view class="mode-chip {{mode === 'real' ? 'on' : ''}}" bindtap="showMode">
+    <text class="dot"></text>
+    {{ mode === 'real' ? '已连接诊所后台 · 数据实时同步' : (mode === 'offline' ? '离线演示模式 · 点此查看原因' : '正在检测连接…') }}
+  </view>
+</view>
+
+<view class="wrap" style="margin-top:-26rpx">
+  <view class="card" wx:if="{{upcoming}}">
+    <view class="row">
+      <text class="card-title" style="margin:0">待就诊提醒</text>
+      <text class="badge teal">{{upcoming.visit_date}} {{upcoming.start_time}}</text>
+    </view>
+    <view style="margin-top:10rpx">{{upcoming.dentist_name}} · {{upcoming.clinic_name}}</view>
+    <view class="d">状态：{{upcoming.status}} · 结算单 {{upcoming.priceText}}</view>
+    <button class="btn ghost small" style="margin-top:16rpx" bindtap="goBookings">查看 / 改期 / 取消</button>
+  </view>
+
+  <view class="card">
+    <view class="row" style="margin-bottom:16rpx">
+      <text class="card-title" style="margin:0">按分类选项目</text>
+      <text class="muted">目录价即线上价</text>
+    </view>
+    <view class="grid-4">
+      <view class="cat" wx:for="{{cats}}" wx:key="category_id" data-id="{{item.category_id}}" bindtap="goCategory">
+        <text class="em">{{item.emoji}}</text>
+        {{item.name}}
+        <view class="d">{{item.count}} 项</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <text class="card-title">我的服务</text>
+    <view class="list-item" bindtap="goReport">
+      <view class="t">报告与影像调阅</view>
+      <view class="d">牙位记录、影像与知情同意（默认脱敏）</view>
+    </view>
+    <view class="list-item" bindtap="goBookings">
+      <view class="t">我的预约</view>
+      <view class="d">改期、取消、支付定金</view>
+    </view>
+  </view>
+
+  <view class="card" style="background:#f7fbfa">
+    <view class="rule" style="border:0;padding:0">
+      预约规则：号源为 30 分钟切片，提交时由后端条件更新锁位；未支付订单 15 分钟自动释放号源；
+      取消定金按 24 小时分档退回，爽约不退。
+    </view>
+  </view>
+</view>

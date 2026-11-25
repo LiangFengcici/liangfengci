@@ -1,0 +1,194 @@
+{% extends "base_staff.html" %}
+{% from "macros.html" import badge, empty %}
+{% set active = 'booking' %}
+{% block title %}预约登记{% endblock %}
+{% block crumb %}前台接待 · 预约登记（UC1：匹配账号 → 资质 × 档期 → 冲突校验 → 推送确认){% endblock %}
+{% block heading %}预约登记{% endblock %}
+{% block actions %}
+  <a class="btn" href="{{ url_for('staff.frontdesk') }}">返回接待台</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-side">
+  <div>
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>第一步 · 选择项目、日期与门店</h2></div>
+        <span class="sub">号源 = 已发布班次 × 30 分钟切片</span></div>
+      <form method="get" action="{{ url_for('staff.frontdesk_booking') }}">
+        <div class="form-row cols-3">
+          <div>
+            <label class="lbl">治疗项目</label>
+            <select name="catalog_id" required>
+              {% for g in catalog_groups %}
+              <optgroup label="{{ g.cat.name }}">
+                {% for it in g['items'] %}
+                <option value="{{ it.catalog_id }}" {{ 'selected' if sel_catalog==it.catalog_id }}>
+                  {{ it.name }} · {{ it.price_cents|money }} · {{ it.duration_slots }} 片
+                </option>
+                {% endfor %}
+              </optgroup>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="lbl">就诊日期</label>
+            <input type="date" name="day" value="{{ day }}" required>
+          </div>
+          <div>
+            <label class="lbl">门店</label>
+            <select name="clinic_id">
+              <option value="">全部门店</option>
+              {% for c in clinics %}<option value="{{ c.clinic_id }}" {{ 'selected' if sel_clinic==c.clinic_id }}>{{ c.name }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary">查询可用号源</button>
+        {% if item %}
+        <span class="muted" style="margin-left:10px;font-size:12.5px">
+          项目时长 {{ item.duration_slots }} 片（{{ item.duration_slots * 30 }} 分钟）
+          {% if item.requires_consent %} · 需签署知情同意书{% endif %}
+        </span>
+        {% endif %}
+      </form>
+    </div>
+
+    {% if item %}
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>第二步 · 选定号源并登记患者</h2></div>
+        <span class="sub">{{ item.name }} · {{ day }}</span></div>
+
+      <form method="post" action="{{ url_for('staff.frontdesk_book') }}">
+        <input type="hidden" name="catalog_id" value="{{ item.catalog_id }}">
+        <input type="hidden" name="day" value="{{ day }}">
+
+        <div class="section-title">可用号源（按资质 × 档期过滤，选中其一）</div>
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead><tr><th></th><th>时段</th><th>牙医</th><th>诊所 / 牙椅</th><th class="num">占用切片</th></tr></thead>
+            <tbody>
+            {% for w in windows %}
+              <tr>
+                <td><input type="radio" name="win" required value="{{ w.dentist_id }}|{{ w.clinic_id }}|{{ w.start_time }}"
+                     onchange="syncWin('{{ w.dentist_id }}','{{ w.clinic_id }}','{{ w.start_time }}')"></td>
+                <td><b>{{ w.start_time }}</b> – {{ w.end_time }}</td>
+                <td>{{ w.dentist_name }}<div class="muted" style="font-size:11px">{{ w.title }}</div></td>
+                <td>{{ w.clinic_name }}<div class="muted" style="font-size:11px">{{ w.chair_name }}</div></td>
+                <td class="num">{{ w.slots }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="5">{{ empty('该日期没有满足“资质 × 档期”的可用号源，请换日期或门店') }}</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <input type="hidden" name="dentist_id" id="f_dentist">
+        <input type="hidden" name="clinic_id" id="f_clinic">
+        <input type="hidden" name="start_time" id="f_time">
+
+        <div class="divider"></div>
+        <div class="section-title">第三步 · 患者账号</div>
+        <div class="form-row cols-2">
+          <div>
+            <label class="lbl">已建档患者（匹配到账号则直接使用）</label>
+            <select name="patient_id">
+              <option value="">— 新患者，请在右侧填写 —</option>
+              {% for p in patients %}
+              <option value="{{ p.patient_id }}">{{ p.name }} · {{ p.phone }}{% if p.allergens %} · 过敏：{{ p.allergens }}{% endif %}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="lbl">预约来源</label>
+            <select name="source"><option>到店</option><option>电话</option><option>在线</option></select>
+          </div>
+        </div>
+        <div class="form-row cols-2">
+          <div><label class="lbl">特殊需求说明</label><input type="text" name="special_note" placeholder="如：行动不便需一楼诊室"></div>
+          <div style="display:flex;align-items:flex-end">
+            <label class="check"><input type="checkbox" name="deposit" value="1"> 生成定金单（项目价 10%，不足 50 元按 50 元计）</label>
+          </div>
+        </div>
+        <button class="btn btn-primary">创建预约</button>
+        <div class="rule">创建时校验：该牙医同时段无冲突、班次余量充足、该患者同时段无重复预约、牙医资格覆盖所选项目。</div>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>新患者建档</h2></div>
+        <span class="sub">过敏症逐项登记</span></div>
+      <div class="form-row">
+        <label class="lbl">姓名</label><input type="text" name="new_name" form="newp" placeholder="姓名">
+      </div>
+      <div class="form-row cols-2">
+        <div><label class="lbl">性别</label>
+          <select name="new_gender" form="newp"><option>女</option><option>男</option></select></div>
+        <div><label class="lbl">出生日期</label><input type="date" name="new_birth" form="newp"></div>
+      </div>
+      <div class="form-row">
+        <label class="lbl">手机号</label><input type="text" name="new_phone" form="newp" placeholder="11 位手机号">
+      </div>
+      <div class="form-row">
+        <label class="lbl">账单地址</label><input type="text" name="new_address" form="newp">
+      </div>
+      <div class="form-row">
+        <label class="lbl">过敏症（逗号分隔，逐项）</label>
+        <input type="text" name="new_allergy" form="newp" placeholder="青霉素, 金属">
+        <div class="help">可选：乳胶 / 麻醉剂 / 金属 / 树脂 / 青霉素 / 磺胺 / 其他</div>
+      </div>
+      <div class="form-row cols-2">
+        <div><label class="lbl">紧急联系人</label><input type="text" name="new_contact" form="newp"></div>
+        <div><label class="lbl">联系人电话</label><input type="text" name="new_contact_phone" form="newp"></div>
+      </div>
+      <form id="newp" method="post" action="{{ url_for('staff.frontdesk_book') }}">
+        <input type="hidden" name="catalog_id" value="{{ item.catalog_id if item else '' }}">
+        <input type="hidden" name="day" value="{{ day }}">
+        <input type="hidden" name="source" value="到店">
+        <input type="hidden" name="dentist_id" id="n_dentist">
+        <input type="hidden" name="clinic_id" id="n_clinic">
+        <input type="hidden" name="start_time" id="n_time">
+        <button class="btn btn-primary btn-block" {{ 'disabled' if not item }}>建档并预约</button>
+        <div class="help">需先在左侧选定号源；建档后患者即可在微信小程序自助预约。</div>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>今日队列速览</h2></div>
+        <span class="sub">{{ day }}</span></div>
+      {% for v in queue[:8] %}
+      <div class="row between" style="padding:6px 0;border-bottom:1px dashed var(--line-2)">
+        <div><b style="font-size:12.5px">{{ v.start_time }} {{ v.patient_name }}</b>
+          <div class="muted" style="font-size:11px">{{ v.dentist_name }} · {{ v.clinic_name }}</div></div>
+        {{ badge(v.status) }}
+      </div>
+      {% else %}{{ empty('今日暂无预约') }}{% endfor %}
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>牙医资质与技能</h2></div></div>
+      {% for d in dentists %}
+      <div style="padding:7px 0;border-bottom:1px dashed var(--line-2)">
+        <div class="row between"><b style="font-size:12.5px">{{ d.name }}</b><span class="muted" style="font-size:11px">{{ d.title }}</span></div>
+        <div class="muted" style="font-size:11px;margin-top:2px">{{ d.skills or '未维护' }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function syncWin(dentist, clinic, time) {
+  document.getElementById('f_dentist').value = dentist;
+  document.getElementById('f_clinic').value = clinic;
+  document.getElementById('f_time').value = time;
+  document.getElementById('n_dentist').value = dentist;
+  document.getElementById('n_clinic').value = clinic;
+  document.getElementById('n_time').value = time;
+}
+</script>
+{% endblock %}

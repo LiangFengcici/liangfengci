@@ -1,0 +1,293 @@
+{% extends "base_staff.html" %}
+{% from "macros.html" import badge, kpi, empty %}
+{% set active = 'finance' %}
+{% block title %}财务工作台{% endblock %}
+{% block crumb %}财务工作台 · 收银 / 退款 / 开票红冲 / 折扣审批 / 对账 / 审计（UC5、UC7、4.4、4.7）{% endblock %}
+{% block heading %}财务工作台{% endblock %}
+{% block actions %}
+  <form method="post" action="{{ url_for('staff.jobs_run') }}">
+    <button class="btn btn-sm">执行对账与定时任务</button>
+  </form>
+  <a class="btn btn-sm" href="{{ url_for('staff.export_csv', name='revenue') }}">导出营收 CSV</a>
+  <a class="btn btn-sm" href="{{ url_for('staff.export_csv', name='perf') }}">导出业绩 CSV</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-4" style="margin-bottom:16px">
+  {{ kpi('今日实收', kpis.today_recv|money, '微信 + 现金 + 刷卡', true) }}
+  {{ kpi('今日退款', kpis.today_refund|money, '按实收 − 退款冲减当日营收') }}
+  {{ kpi('待收款结算单', kpis.pending_count, '含定金单与诊毕结算单') }}
+  {{ kpi('待办审批', (kpis.refund_todo + kpis.disc_todo), '退款 ' ~ kpis.refund_todo ~ ' · 折扣 ' ~ kpis.disc_todo) }}
+</div>
+
+<div class="grid grid-side">
+  <div>
+    <!-- 收银 -->
+    <div class="card flush">
+      <div class="card-head" style="padding:16px 18px 10px;margin:0">
+        <div class="card-title"><span class="dot"></span><h2>待收款结算单</h2></div>
+        <span class="sub">金额以结算单为准，不允许改价支付</span>
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>单号</th><th>患者</th><th>就诊</th><th class="num">总价</th><th class="num">已收</th>
+            <th class="num">待收</th><th>状态</th><th>收款</th></tr></thead>
+          <tbody>
+          {% for i in pending %}
+            <tr>
+              <td class="mono" style="font-size:11.5px">{{ i.invoice_no }}<div class="muted">{{ i.kind }}</div></td>
+              <td><b>{{ i.patient_name }}</b><div class="muted" style="font-size:11px">{{ i.clinic_name }}</div></td>
+              <td class="nowrap">{{ i.visit_date }}<div class="muted" style="font-size:11px">{{ i.start_time }} · {{ i.dentist_name }}</div></td>
+              <td class="num">{{ i.total_cents|money }}</td>
+              <td class="num">{{ i.paid_cents|money }}</td>
+              <td class="num"><b style="color:#b42318">{{ (i.total_cents - i.paid_cents)|money }}</b></td>
+              <td>{{ badge(i.status) }}</td>
+              <td>
+                <form method="post" action="{{ url_for('staff.finance_pay') }}" class="row" style="gap:5px">
+                  <input type="hidden" name="invoice_id" value="{{ i.invoice_id }}">
+                  <input type="hidden" name="full_amount" value="{{ i.total_cents - i.paid_cents }}">
+                  <input type="number" step="0.01" name="amount" style="width:88px"
+                         value="{{ ((i.total_cents - i.paid_cents)/100)|round(2) }}">
+                  <select name="method" style="width:88px"><option>现金</option><option>刷卡</option><option>微信支付</option></select>
+                  <button class="btn btn-sm btn-primary">收</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}<tr><td colspan="8">{{ empty('没有待收款结算单') }}</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 退款 -->
+    <div class="card flush">
+      <div class="card-head" style="padding:16px 18px 10px;margin:0">
+        <div class="card-title"><span class="dot"></span><h2>退款流水</h2></div>
+        <span class="sub">已开票须先红冲；退款金额 ≤ 原流水可退金额</span>
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>退款号</th><th>患者</th><th>原流水</th><th class="num">金额</th><th>原因</th>
+            <th>状态</th><th>审核/执行</th></tr></thead>
+          <tbody>
+          {% for r in refunds %}
+            <tr>
+              <td class="mono" style="font-size:11.5px">{{ r.refund_no }}</td>
+              <td>{{ r.patient_name }}<div class="muted" style="font-size:11px">{{ r.invoice_no }}</div></td>
+              <td class="mono" style="font-size:11px">{{ r.pay_no }}<div class="muted">{{ r.method }}</div></td>
+              <td class="num">{{ r.amount_cents|money }}</td>
+              <td style="max-width:190px;font-size:12px">{{ r.reason }}</td>
+              <td>{{ badge(r.status) }}</td>
+              <td>
+                {% if r.status == '待审核' %}
+                <form method="post" action="{{ url_for('staff.finance_refund', action='approve') }}">
+                  <input type="hidden" name="refund_id" value="{{ r.refund_id }}">
+                  <button class="btn btn-sm">审核通过</button>
+                </form>
+                {% elif r.status == '退回中' %}
+                <form method="post" action="{{ url_for('staff.finance_refund', action='execute') }}">
+                  <input type="hidden" name="refund_id" value="{{ r.refund_id }}">
+                  <button class="btn btn-sm btn-primary">执行原路退回</button>
+                </form>
+                {% else %}<span class="muted" style="font-size:11.5px">{{ r.finished_at|dt }}</span>{% endif %}
+              </td>
+            </tr>
+          {% else %}<tr><td colspan="7">{{ empty('暂无退款记录') }}</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div style="padding:12px 18px;border-top:1px solid var(--line-2)">
+        <form method="post" action="{{ url_for('staff.finance_refund', action='request') }}" class="row">
+          <select name="pay_id" style="flex:1">
+            {% for p in pays %}
+            <option value="{{ p.pay_id }}">{{ p.patient_name }} · {{ p.pay_no }} · {{ p.amount_cents|money }}（可退 {{ (p.amount_cents - (p.refunded or 0))|money }}）</option>
+            {% endfor %}
+          </select>
+          <input type="number" step="0.01" name="amount" placeholder="退款金额" style="width:110px">
+          <input type="text" name="reason" placeholder="退款原因（取消/停诊/多收费）" style="flex:1">
+          <button class="btn btn-sm btn-danger">发起退款</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- 发票 -->
+    <div class="card flush">
+      <div class="card-head" style="padding:16px 18px 10px;margin:0">
+        <div class="card-title"><span class="dot"></span><h2>发票与红冲</h2></div>
+        <span class="sub">先红冲后退款（5.2 之(4)）</span>
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>单号</th><th>患者</th><th class="num">金额</th><th>开票</th><th>红冲</th><th>操作</th></tr></thead>
+          <tbody>
+          {% for i in invoiced %}
+            {% set red = reds|selectattr('invoice_id','equalto',i.invoice_id)|list %}
+            <tr>
+              <td class="mono" style="font-size:11.5px">{{ i.invoice_no }}</td>
+              <td>{{ i.patient_name }}</td>
+              <td class="num">{{ i.paid_cents|money }}</td>
+              <td>{% if i.is_invoiced %}<span class="badge b-green">已开票</span>{% else %}<span class="badge b-gray">未开票</span>{% endif %}</td>
+              <td>{% if red %}<span class="badge b-red">{{ red[0].red_no }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+              <td>
+                <div class="chip-row">
+                  {% if not i.is_invoiced %}
+                  <form method="post" action="{{ url_for('staff.finance_invoice', action='issue') }}">
+                    <input type="hidden" name="invoice_id" value="{{ i.invoice_id }}">
+                    <input type="hidden" name="title" value="{{ i.patient_name }}">
+                    <button class="btn btn-sm">开票</button>
+                  </form>
+                  {% elif not red %}
+                  <form method="post" action="{{ url_for('staff.finance_invoice', action='reverse') }}">
+                    <input type="hidden" name="invoice_id" value="{{ i.invoice_id }}">
+                    <input type="hidden" name="reason" value="退款红冲">
+                    <button class="btn btn-sm btn-danger">红冲</button>
+                  </form>
+                  {% else %}<span class="muted" style="font-size:11.5px">已冲销</span>{% endif %}
+                </div>
+              </td>
+            </tr>
+          {% else %}<tr><td colspan="6">{{ empty() }}</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 分期 -->
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>分期台账</h2></div>
+        <span class="sub">Σ期款 + 首付 = 总价</span></div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>计划</th><th>患者</th><th class="num">总价</th><th class="num">首付</th><th>状态</th><th>期款</th></tr></thead>
+          <tbody>
+          {% for p in plans %}
+            <tr>
+              <td class="mono" style="font-size:11.5px">{{ p.plan_no }}<div class="muted">{{ p.mode }} · {{ p.periods }} 期</div></td>
+              <td>{{ p.patient_name }}</td>
+              <td class="num">{{ p.total_cents|money }}</td>
+              <td class="num">{{ p.down_cents|money }}</td>
+              <td>{{ badge(p.status) }}{% if not p.signed %}<div><span class="badge b-red">未签署</span></div>{% endif %}</td>
+              <td>
+                {% set rows = insts|selectattr('plan_id','equalto',p.inst_plan_id)|list %}
+                <div class="chip-row">
+                {% for it in rows[:4] %}
+                  <span class="chip">{{ '首期' if it.seq==0 else it.seq }} {{ it.amount_cents|money }} · {{ it.status }}</span>
+                {% endfor %}
+                </div>
+              </td>
+            </tr>
+          {% else %}<tr><td colspan="6">{{ empty('暂无分期计划') }}</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="divider"></div>
+      <div class="section-title">待核销期款</div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>计划</th><th>患者</th><th>期号</th><th>到期日</th><th class="num">金额</th><th>状态</th><th>操作</th></tr></thead>
+          <tbody>
+          {% for it in insts if it.status in ('待付','逾期') %}
+            <tr>
+              <td class="mono" style="font-size:11.5px">{{ it.plan_no }}</td>
+              <td>{{ it.patient_name }}</td>
+              <td>{{ '首期' if it.seq==0 else it.seq }}</td>
+              <td>{{ it.due_date }}</td>
+              <td class="num">{{ it.amount_cents|money }}</td>
+              <td>{{ badge(it.status) }}</td>
+              <td>
+                <form method="post" action="{{ url_for('staff.finance_installment_pay') }}" class="row" style="gap:4px">
+                  <input type="hidden" name="inst_id" value="{{ it.inst_id }}">
+                  <input type="hidden" name="idem_key" value="INST-{{ it.inst_id }}">
+                  <select name="method" style="width:80px"><option>微信支付</option><option>现金</option><option>刷卡</option></select>
+                  <button class="btn btn-sm">核销</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <!-- 折扣 -->
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>折扣授权</h2></div></div>
+      <div class="rule">前台/财务 ≤5% 直接生效；诊所经理 ≤20%；超额自动转审批。已收款账单不可追溯改折扣。</div>
+      <form method="post" action="{{ url_for('staff.finance_discount', action='apply') }}" style="margin-top:10px">
+        <div class="form-row">
+          <label class="lbl">结算单（未收款）</label>
+          <select name="invoice_id">
+            {% for i in pending %}<option value="{{ i.invoice_id }}">{{ i.invoice_no }} · {{ i.patient_name }} · {{ i.total_cents|money }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-row cols-2">
+          <div><label class="lbl">折扣幅度（%）</label><input type="number" step="0.5" name="rate" value="5"></div>
+          <div><label class="lbl">理由</label><input type="text" name="reason" placeholder="会员活动 / 争议补偿"></div>
+        </div>
+        <button class="btn btn-block">申请折扣</button>
+      </form>
+      <div class="divider"></div>
+      {% for d in discounts %}
+        <div style="border-bottom:1px dashed var(--line-2);padding:7px 0">
+          <div class="row between">
+            <b style="font-size:12.5px">{{ d.invoice_no }} · {{ (d.rate*100)|round(1) }}%</b>
+            {{ badge(d.status) }}
+          </div>
+          <div class="muted" style="font-size:11px">{{ d.apply_role }} {{ d.applicant }} 申请 · {{ d.reason or '无理由' }}</div>
+          {% if d.status == '待审批' %}
+          <form method="post" action="{{ url_for('staff.finance_discount', action='decide') }}" class="row" style="gap:5px;margin-top:5px">
+            <input type="hidden" name="disc_id" value="{{ d.disc_id }}">
+            <button class="btn btn-sm btn-primary" name="decision" value="approve">通过</button>
+            <button class="btn btn-sm btn-danger" name="decision" value="reject">驳回</button>
+          </form>
+          {% endif %}
+        </div>
+      {% else %}{{ empty('暂无折扣申请') }}{% endfor %}
+    </div>
+
+    <!-- 对账 -->
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>近 7 日对账</h2></div>
+        <span class="sub">{{ kpis.unreconciled }} 条差异</span></div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>日期</th><th>诊所</th><th class="num">应收</th><th class="num">实收</th><th class="num">退款</th><th class="num">差异</th></tr></thead>
+          <tbody>
+          {% for r in revenues[:10] %}
+            <tr>
+              <td class="nowrap">{{ r.rev_date }}</td>
+              <td style="font-size:12px">{{ r.clinic_name }}</td>
+              <td class="num">{{ r.receivable_cents|money }}</td>
+              <td class="num">{{ r.received_cents|money }}</td>
+              <td class="num">{{ r.refund_cents|money }}</td>
+              <td class="num">{% if r.diff_cents %}
+                <span class="badge b-amber">{{ r.diff_cents|money }}</span>{% else %}
+                <span class="badge b-green">平</span>{% endif %}</td>
+            </tr>
+          {% else %}<tr><td colspan="6">{{ empty('尚无对账记录，点右上角执行定时任务') }}</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 审计 -->
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>操作审计流</h2></div>
+        <a class="btn btn-sm" href="{{ url_for('staff.export_csv', name='audit') }}">导出</a></div>
+      <div style="max-height:520px;overflow:auto">
+      {% for a in audits %}
+        <div class="audit-row">
+          <div class="t">{{ a.created_at[5:16] }}</div>
+          <div>
+            <b style="font-size:12px">{{ a.action }}</b>
+            <div class="muted" style="font-size:11px">{{ a.actor }} · {{ a.role }} · {{ a.target }}</div>
+          </div>
+        </div>
+      {% else %}{{ empty() }}{% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>{{ status }} · 诊疗信息平台</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+<div style="max-width:560px;margin:12vh auto;padding:0 20px">
+  <div class="card">
+    <div class="row between">
+      <h2>请求被拒绝</h2>
+      <span class="badge b-red">HTTP {{ status }}</span>
+    </div>
+    <p style="margin-top:12px;font-size:14px">{{ message }}</p>
+    <div class="rule" style="margin-top:14px">
+      错误码按 4.12 约定分段：409 状态冲突（如重复预约）· 422 业务规则拒绝（过敏拦截、余量不足）·
+      428 前置条件未满足（知情同意书未签署）· 403 越权。
+    </div>
+    <div class="row" style="margin-top:16px">
+      <a class="btn btn-primary" href="javascript:history.back()">返回上一页</a>
+      <a class="btn" href="{{ url_for('staff.home') }}">回到工作台</a>
+    </div>
+  </div>
+</div>
+</body>
+</html>

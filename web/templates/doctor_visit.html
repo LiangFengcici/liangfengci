@@ -1,0 +1,371 @@
+{% extends "base_staff.html" %}
+{% from "macros.html" import badge, empty, xray %}
+{% set active = 'doctor' %}
+{% block title %}牙位图工作区{% endblock %}
+{% block crumb %}医生工作站 · {{ v.patient_name }} · {{ v.visit_date }} {{ v.start_time }}（UC2 / UC3 / UC8）{% endblock %}
+{% block heading %}{{ v.patient_name }} · 牙位图工作区{% endblock %}
+{% block actions %}
+  <a class="btn" href="{{ url_for('staff.doctor') }}">返回诊室</a>
+  {% if v.status == '待就诊' %}
+  <form method="post" action="{{ url_for('staff.complete_visit', vid=v.visit_id) }}">
+    <button class="btn">标记治疗完成</button>
+  </form>
+  {% endif %}
+  <form method="post" action="{{ url_for('staff.finish_visit', vid=v.visit_id) }}">
+    <button class="btn btn-primary">诊毕结算</button>
+  </form>
+{% endblock %}
+
+{% block content %}
+
+<div class="grid grid-side">
+  <div>
+    <!-- 患者横幅 -->
+    <div class="card" style="padding:14px 18px">
+      <div class="row between" style="align-items:flex-start">
+        <div>
+          <div class="row" style="gap:10px">
+            <h2 style="font-size:18px">{{ v.patient_name }}</h2>
+            {{ badge(v.status) }}
+            {% if v.source == '在线' %}<span class="badge b-teal">线上预约</span>{% endif %}
+            {% if v.is_arrived %}<span class="badge b-green">已到店</span>{% else %}<span class="badge b-gray">未到店</span>{% endif %}
+          </div>
+          <div class="muted" style="font-size:12.5px;margin-top:4px">
+            {{ v.gender }} · 出生 {{ v.birth_date }} · {{ v.phone }} · {{ v.clinic_name }} · {{ v.chair_name or '未分配牙椅' }}
+          </div>
+          <div class="chip-row" style="margin-top:8px">
+            {% if allergies %}
+              {% for a in allergies %}
+                <span class="badge b-red">过敏：{{ a.allergen }}</span>
+              {% endfor %}
+              <span class="badge b-amber">处方开立时将硬校验</span>
+            {% else %}
+              <span class="badge b-gray">无登记过敏症</span>
+            {% endif %}
+            {% if consents %}<span class="badge b-green">知情同意已签署 {{ consents|length }} 份</span>
+            {% else %}<span class="badge b-amber">未签知情同意书</span>{% endif %}
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div class="muted" style="font-size:11.5px">就诊 #{{ v.visit_id }}</div>
+          <div class="mono" style="font-size:11.5px">{{ v.visit_date }} {{ v.start_time }}–{{ v.end_time }}</div>
+          {% if v.special_note %}<div class="muted" style="font-size:11.5px;max-width:240px;margin-top:4px">备注：{{ v.special_note }}</div>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- FDI 牙位图 -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title"><span class="dot"></span><h2>FDI 牙位图（11—48 恒牙）</h2></div>
+        <span class="sub">点击牙位即定位到记录表单 · 既往状态按牙位着色</span>
+      </div>
+      <div class="tooth-chart">
+        {% for arch, quads in fdi_list.items() %}
+          <div class="tooth-axis" style="justify-content:space-between;padding:0 6px">
+            <span>{{ '上颌' if arch=='上颌' else '下颌' }} · 右</span>
+            <span>右 ← → 左</span>
+            <span>左</span>
+          </div>
+          <div class="tooth-quadrant">
+            {% for fdi in quads['右'] %}
+              {% set t = tooth_map.get(fdi) %}
+              <div class="tooth {{ ('is-' ~ t.status) if t else '' }}" data-fdi="{{ fdi }}"
+                   title="{{ fdi }}{% if t %} · {{ t.status }}{% if surfaces.get(fdi) %} · {{ surfaces[fdi]|join('、') }}{% endif %}{% endif %}"
+                   onclick="pickTooth('{{ fdi }}')">
+                {{ fdi }}<span class="surf">{{ (t.status[0] if t and t.status else '') }}</span>
+              </div>
+            {% endfor %}
+            <div class="qt">/</div>
+            {% for fdi in quads['左'] %}
+              {% set t = tooth_map.get(fdi) %}
+              <div class="tooth {{ ('is-' ~ t.status) if t else '' }}" data-fdi="{{ fdi }}"
+                   title="{{ fdi }}{% if t %} · {{ t.status }}{% if surfaces.get(fdi) %} · {{ surfaces.get(fdi)|join('、') }}{% endif %}{% endif %}"
+                   onclick="pickTooth('{{ fdi }}')">
+                {{ fdi }}<span class="surf">{{ (t.status[0] if t and t.status else '') }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+      <div class="legend" style="margin-top:10px">
+        <span><i style="background:#fdecea;border:1px solid #f2b8b2"></i>龋</span>
+        <span><i style="background:#f1f4f5;border:1px solid #cfd8dc"></i>缺失</span>
+        <span><i style="background:#e8efff;border:1px solid #bcd0fb"></i>修复体</span>
+        <span><i style="background:#f1ebfd;border:1px solid #d5c6f7"></i>种植</span>
+        <span><i style="background:#fdf3e2;border:1px solid #f2d6a6"></i>隐裂</span>
+      </div>
+    </div>
+
+    <!-- 牙位状况 + 牙周 -->
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-head"><div class="card-title"><span class="dot"></span><h2>记录牙位状况</h2></div>
+          <span class="sub">状态 + 受累牙面</span></div>
+        <form method="post" action="{{ url_for('staff.save_tooth', vid=v.visit_id) }}">
+          <div class="form-row cols-2">
+            <div><label class="lbl">FDI 牙位</label>
+              <select name="fdi" id="fdi_sel">{% for fdi in fdi_list['上颌']['右'] + fdi_list['上颌']['左'] + fdi_list['下颌']['右'] + fdi_list['下颌']['左'] %}<option>{{ fdi }}</option>{% endfor %}</select></div>
+            <div><label class="lbl">状态</label>
+              <select name="status"><option>龋</option><option>缺失</option><option>修复体</option><option>种植</option><option>隐裂</option><option>正常</option></select></div>
+          </div>
+          <label class="lbl">受累牙面</label>
+          <div class="chip-row" style="margin-bottom:10px">
+            {% for s in ['近中','远中','颊','舌','咬合'] %}
+            <label class="check"><input type="checkbox" name="surfaces" value="{{ s }}"> {{ s }}</label>
+            {% endfor %}
+          </div>
+          <div class="form-row"><label class="lbl">说明</label><input type="text" name="note" placeholder="如：合面深龋，探（+）"></div>
+          <button class="btn btn-primary btn-block">保存牙位记录</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title"><span class="dot"></span><h2>牙周检查（6 位点）</h2></div>
+          <span class="sub">PD≥4 自动生成治疗计划</span></div>
+        <form method="post" action="{{ url_for('staff.save_perio', vid=v.visit_id) }}">
+          <div class="form-row cols-2">
+            <div><label class="lbl">FDI 牙位</label>
+              <select name="fdi" id="perio_fdi">{% for fdi in fdi_list['上颌']['右'] + fdi_list['上颌']['左'] + fdi_list['下颌']['右'] + fdi_list['下颌']['左'] %}<option>{{ fdi }}</option>{% endfor %}</select></div>
+            <div><label class="lbl">松动度（0—3）</label><input type="number" name="mobility" value="0" min="0" max="3"></div>
+          </div>
+          <label class="lbl">PD 探诊深度（mm）× 6 位点</label>
+          <div class="row" style="gap:6px;margin-bottom:8px">
+            {% for i in range(1,7) %}
+            <input type="number" name="pd{{ i }}" value="3" min="0" max="15" style="width:52px" title="位点 {{ i }}">
+            {% endfor %}
+          </div>
+          <div class="form-row cols-2">
+            <div><label class="lbl">CAL 附着丧失</label><input type="number" name="cal" value="0" min="0" max="15"></div>
+            <div style="display:flex;align-items:flex-end"><label class="check"><input type="checkbox" name="bleeding" value="1"> 探诊出血（BOP）</label></div>
+          </div>
+          <button class="btn btn-primary btn-block">保存牙周检查</button>
+        </form>
+        {% if perio %}
+        <div class="divider"></div>
+        <div class="section-title">已有牙周数据</div>
+        <div class="table-wrap"><table class="tbl">
+          <thead><tr><th>牙位</th><th>PD</th><th>CAL</th><th>松动</th><th>出血</th></tr></thead>
+          <tbody>
+          {% for fdi, t in tooth_map.items() %}{% if perio.get(t.tooth_id) %}{% set e = perio.get(t.tooth_id) %}
+            <tr><td>{{ fdi }}</td><td class="mono">{{ e.pd1 }}/{{ e.pd2 }}/{{ e.pd3 }}/{{ e.pd4 }}/{{ e.pd5 }}/{{ e.pd6 }}</td>
+              <td>{{ e.cal }}</td><td>{{ e.mobility }}</td><td>{{ '是' if e.bleeding else '否' }}</td></tr>
+          {% endif %}{% endfor %}
+          </tbody></table></div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- 治疗计划 -->
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>治疗计划（分期）</h2></div>
+        <span class="sub">{{ plans[0].stage if plans else '一期' }} · {{ plans[0].note if plans else '未建立计划' }}</span></div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>牙位</th><th>计划项</th><th>状态</th><th>说明</th><th>来源</th></tr></thead>
+          <tbody>
+          {% for it in plan_items %}
+            <tr><td><b>{{ it.fdi or '—' }}</b></td><td>{{ it.item_name or '—' }}</td>
+              <td>{{ badge('进行' if it.status=='进行' else ('完成' if it.status=='完成' else '待付')) }}</td>
+              <td class="muted" style="font-size:12px">{{ it.note }}</td>
+              <td>{% if it.auto_flag %}<span class="badge b-red">PD≥4 自动生成</span>{% else %}<span class="badge b-gray">医生添加</span>{% endif %}</td></tr>
+          {% else %}<tr><td colspan="5">{{ empty('尚无计划项') }}</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <form method="post" action="{{ url_for('staff.save_plan', vid=v.visit_id) }}" class="row" style="margin-top:10px">
+        <select name="fdi" style="width:90px">{% for fdi in fdi_list['上颌']['右'] + fdi_list['上颌']['左'] + fdi_list['下颌']['右'] + fdi_list['下颌']['左'] %}<option>{{ fdi }}</option>{% endfor %}</select>
+        <select name="catalog_id" style="flex:1">
+          {% for g in catalog_groups %}{% for it in g['items'] %}<option value="{{ it.catalog_id }}">{{ g.cat.name }} · {{ it.name }}</option>{% endfor %}{% endfor %}
+        </select>
+        <select name="stage" style="width:96px"><option>一期</option><option>二期</option><option>三期</option></select>
+        <input type="text" name="note" placeholder="说明" style="flex:1">
+        <button class="btn btn-sm">加入计划</button>
+      </form>
+    </div>
+
+    <!-- 处方 -->
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>处方</h2></div>
+        <span class="sub">过敏硬校验 + 麻精药品专册登记</span></div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>药品</th><th>剂量</th><th>用法</th><th>麻精</th><th>专册号</th><th>双人核对</th></tr></thead>
+          <tbody>
+          {% for r in rx %}
+            <tr><td><b>{{ r.drug }}</b></td><td>{{ r.dose }}</td><td>{{ r.usage }}</td>
+              <td>{% if r.is_narcotic %}<span class="badge b-red">麻醉/精神</span>{% else %}—{% endif %}</td>
+              <td class="mono">{{ r.register_no or '—' }}</td><td>{{ r.double_check_by or '—' }}</td></tr>
+          {% else %}<tr><td colspan="6">{{ empty('尚无处方') }}</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <form method="post" action="{{ url_for('staff.save_rx', vid=v.visit_id) }}" style="margin-top:10px">
+        <div class="form-row cols-2">
+          <div><label class="lbl">药品</label><input type="text" name="drug" placeholder="如：阿莫西林胶囊" required></div>
+          <div><label class="lbl">剂量</label><input type="text" name="dose" placeholder="0.5g tid×3 天"></div>
+        </div>
+        <div class="form-row cols-3">
+          <div><label class="lbl">用法</label><input type="text" name="usage" placeholder="口服"></div>
+          <div><label class="lbl">专册登记号（麻精必填）</label><input type="text" name="register_no"></div>
+          <div><label class="lbl">双人核对</label><input type="text" name="double_check_by" placeholder="核对人"></div>
+        </div>
+        <label class="check" style="margin-bottom:10px"><input type="checkbox" name="is_narcotic" value="1"> 麻醉 / 精神药品（须专册登记 + 双人核对）</label>
+        <button class="btn btn-primary btn-block">提交处方（自动过敏校验）</button>
+        <div class="help">患者过敏：{{ allergies|map(attribute='allergen')|join('、') or '无' }}；系统按药品—过敏原知识库硬拦截。</div>
+      </form>
+    </div>
+
+    <!-- 影像与同意书 -->
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-head"><div class="card-title"><span class="dot"></span><h2>影像归档</h2></div>
+          <span class="sub">索引表 + 对象存储</span></div>
+        <div class="grid grid-2" style="gap:10px">
+          {% for im in images %}
+            {{ xray(im.fdi, im.type) }}
+            <div class="muted" style="font-size:11px;margin-top:-6px">{{ im.type }} · {{ im.fdi or '全口' }} · {{ im.finding }}</div>
+          {% else %}
+            <div class="muted" style="font-size:12.5px">暂无影像。拍摄后可归档并关联牙位。</div>
+          {% endfor %}
+        </div>
+        <form method="post" action="{{ url_for('staff.save_imaging', vid=v.visit_id) }}" style="margin-top:12px">
+          <div class="form-row cols-3">
+            <div><label class="lbl">牙位</label><input type="text" name="fdi" placeholder="26" style="width:100%"></div>
+            <div><label class="lbl">类型</label><select name="type"><option>根尖片</option><option>口内照</option><option>全景片</option><option>CBCT</option></select></div>
+            <div><label class="lbl">结论</label><input type="text" name="finding" placeholder="近中邻面低密度影"></div>
+          </div>
+          <button class="btn btn-sm btn-primary btn-block">归档影像</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title"><span class="dot"></span><h2>知情同意</h2></div>
+          <span class="sub">模板版本锁定 + 电子签名</span></div>
+        <div class="stack">
+          {% for c in consents %}
+            <div style="border:1px solid #c8ead8;background:var(--green-soft);border-radius:9px;padding:8px 11px">
+              <b style="font-size:12.5px">{{ c.template }}</b>
+              <div class="muted" style="font-size:11px">{{ c.version }} · 签署人 {{ c.signed_by }} · {{ c.signed_at|dt }}</div>
+            </div>
+          {% else %}
+            <div class="hint amber">种植 / 拔牙 / 根管 / 正畸类就诊必须先签署，否则诊毕结算将被 428 拦截。</div>
+          {% endfor %}
+        </div>
+        <form method="post" action="{{ url_for('staff.sign_consent', vid=v.visit_id) }}" style="margin-top:12px">
+          <div class="form-row">
+            <label class="lbl">同意书模板</label>
+            <select name="template">{% for t in consent_templates %}<option>{{ t }}</option>{% endfor %}</select>
+          </div>
+          <div class="form-row cols-2">
+            <div><label class="lbl">签署人</label><input type="text" name="signed_by" value="{{ v.patient_name }}"></div>
+            <div><label class="lbl">电子签名</label><input type="text" name="signature" placeholder="患者手写签名（存证）"></div>
+          </div>
+          <button class="btn btn-primary btn-block">生成并签署</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右栏 -->
+  <div>
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>登记治疗项目</h2></div>
+        <span class="sub">UC2 · 目录价不可改</span></div>
+      <form method="post" action="{{ url_for('staff.add_treatment', vid=v.visit_id) }}">
+        <div class="form-row">
+          <label class="lbl">治疗项目</label>
+          <select name="catalog_id">
+            {% for g in catalog_groups %}
+            <optgroup label="{{ g.cat.name }}">
+              {% for it in g['items'] %}<option value="{{ it.catalog_id }}">{{ it.name }} · {{ it.price_cents|money }}/{{ it.unit }}</option>{% endfor %}
+            </optgroup>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-row"><label class="lbl">标准单位数量</label><input type="number" step="0.5" name="qty" value="1"></div>
+        <button class="btn btn-primary btn-block">保存治疗记录</button>
+      </form>
+      <div class="divider"></div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>项目</th><th class="num">数量</th><th class="num">单价</th><th class="num">小计</th></tr></thead>
+          <tbody>
+          {% for t in treatments %}
+            <tr><td>{{ t.name_snapshot }}</td><td class="num">{{ t.qty }}</td>
+              <td class="num">{{ t.unit_price_cents|money }}</td><td class="num">{{ t.amount_cents|money }}</td></tr>
+          {% else %}<tr><td colspan="4">{{ empty('尚未登记治疗') }}</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>结算单</h2></div>
+        {% if invoice %}{{ badge(invoice.status) }}{% endif %}</div>
+      {% if invoice %}
+        <div class="row between"><span class="muted">单号</span><span class="mono">{{ invoice.invoice_no }}</span></div>
+        <div class="row between"><span class="muted">总价</span><b>{{ invoice.total_cents|money }}</b></div>
+        <div class="row between"><span class="muted">已收（含定金）</span><b>{{ invoice.paid_cents|money }}</b></div>
+        <div class="row between"><span class="muted">待收</span><b style="color:#b42318">{{ (invoice.total_cents - invoice.paid_cents)|money }}</b></div>
+        {% if invoice.discount_rate %}<div class="row between"><span class="muted">折扣</span><span>{{ (invoice.discount_rate*100)|round(1) }}%</span></div>{% endif %}
+        <div class="divider"></div>
+        <div class="table-wrap"><table class="tbl">
+          <thead><tr><th>明细行</th><th class="num">数量</th><th class="num">小计</th></tr></thead>
+          <tbody>
+          {% for l in inv_lines %}
+            <tr><td>{{ l.name }}{% if l.kind != '治疗' %}<span class="badge b-gray" style="margin-left:4px">{{ l.kind }}</span>{% endif %}</td>
+              <td class="num">{{ l.qty }}</td><td class="num">{{ l.amount_cents|money }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table></div>
+      {% else %}
+        <div class="muted" style="font-size:12.5px">尚未生成结算单。先“标记治疗完成”，再“诊毕结算”。</div>
+      {% endif %}
+      <div class="rule">结算单不删除；治疗有增减时保留原单号重算，定金自动抵扣，超付原路退回。</div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>器械包领用</h2></div></div>
+      <form method="post" action="{{ url_for('staff.pack_use') }}">
+        <input type="hidden" name="visit_id" value="{{ v.visit_id }}">
+        <div class="form-row">
+          <select name="pack_id">
+            {% for p in packs %}<option value="{{ p.pack_id }}">{{ p.pack_no }} · 批次 {{ p.batch_no }} · 至 {{ p.expire_at }}</option>{% endfor %}
+          </select>
+        </div>
+        <button class="btn btn-sm btn-block">登记领用（形成追溯链）</button>
+      </form>
+      {% for t in traces %}
+        <div class="muted" style="font-size:11.5px;margin-top:6px">已领用 {{ t.pack_no }} · {{ t.used_at|dt }}</div>
+      {% endfor %}
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span class="dot"></span><h2>状态机（3.3）</h2></div></div>
+      <div class="stack" style="font-size:12px">
+        <div class="row between"><span>待就诊</span><span class="muted">是否已就诊=false</span></div>
+        <div class="row between"><span>已完成</span><span class="muted">完成治疗</span></div>
+        <div class="row between"><span>待支付</span><span class="muted">生成结算单</span></div>
+        <div class="row between"><span>已结算</span><span class="muted">收款结清</span></div>
+        <div class="row between"><span>已退款</span><span class="muted">全额退款</span></div>
+        <div class="row between"><span>已取消</span><span class="muted">主动/停诊/爽约</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function pickTooth(fdi) {
+  document.getElementById('fdi_sel').value = fdi;
+  document.getElementById('perio_fdi').value = fdi;
+  document.querySelectorAll('.tooth').forEach(function (el) {
+    el.style.outline = (el.dataset.fdi === fdi) ? '2px solid #0f766e' : 'none';
+    el.style.outlineOffset = '1px';
+  });
+  document.getElementById('fdi_sel').scrollIntoView({behavior: 'smooth', block: 'center'});
+}
+</script>
+{% endblock %}

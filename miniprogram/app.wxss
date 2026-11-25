@@ -1,0 +1,92 @@
+page {
+  background: #f4f7f8;
+  color: #16232b;
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 28rpx;
+  line-height: 1.6;
+}
+.wrap { padding: 24rpx 24rpx 40rpx; }
+.card {
+  background: #fff; border-radius: 24rpx; padding: 26rpx 28rpx;
+  margin-bottom: 22rpx; box-shadow: 0 2rpx 16rpx rgba(16,35,43,.05);
+  border: 1rpx solid #e6edef;
+}
+.card-title { font-size: 30rpx; font-weight: 600; margin-bottom: 14rpx; display: block; }
+.row { display: flex; align-items: center; justify-content: space-between; }
+.muted { color: #8b9aa3; font-size: 24rpx; }
+.price { color: #b42318; font-weight: 700; }
+.btn {
+  background: #0f766e; color: #fff; border-radius: 999rpx; font-size: 30rpx;
+  padding: 0 40rpx; height: 88rpx; line-height: 88rpx; text-align: center;
+  border: none; width: 100%;
+}
+.btn.ghost { background: #fff; color: #16232b; border: 1rpx solid #e3eaec; }
+.btn.small { height: 60rpx; line-height: 60rpx; font-size: 24rpx; width: auto; padding: 0 28rpx; }
+.badge {
+  display: inline-block; padding: 2rpx 16rpx; border-radius: 999rpx;
+  font-size: 22rpx; background: #eef3f4; color: #566872;
+}
+.badge.blue { background: #e8efff; color: #2563eb; }
+.badge.green { background: #e7f6ee; color: #067647; }
+.badge.amber { background: #fdf3e2; color: #b45309; }
+.badge.red { background: #fdecea; color: #b42318; }
+.badge.teal { background: #e6f5f2; color: #0f766e; }
+.hero {
+  background: linear-gradient(150deg, #0f766e 0%, #12a08f 70%, #3fc0aa 100%);
+  color: #fff; padding: 34rpx 32rpx 46rpx;
+}
+.hero .hi { font-size: 24rpx; opacity: .85; }
+.hero .title { font-size: 40rpx; font-weight: 600; margin-top: 8rpx; }
+.hero .allergy {
+  display: inline-block; margin-top: 14rpx; font-size: 22rpx;
+  background: rgba(255,255,255,.16); padding: 6rpx 18rpx; border-radius: 999rpx;
+}
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16rpx; }
+.cat {
+  background: #fff; border: 1rpx solid #e3eaec; border-radius: 20rpx;
+  padding: 20rpx 6rpx; text-align: center; font-size: 23rpx; color: #566872;
+}
+.cat .em { display: block; font-size: 34rpx; margin-bottom: 6rpx; }
+.list-item { padding: 20rpx 0; border-bottom: 1rpx solid #eef3f4; }
+.list-item:last-child { border-bottom: none; }
+.t { font-size: 28rpx; font-weight: 600; }
+.d { font-size: 23rpx; color: #8b9aa3; }
+.chips { display: flex; flex-wrap: wrap; gap: 12rpx; }
+.chip {
+  font-size: 23rpx; padding: 6rpx 20rpx; border-radius: 999rpx;
+  background: #eef3f4; color: #566872;
+}
+.chip.on { background: #0f766e; color: #fff; }
+.slot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14rpx; }
+.slot {
+  border: 1rpx solid #e3eaec; border-radius: 16rpx; text-align: center;
+  padding: 18rpx 0; font-size: 28rpx; font-weight: 600; background: #fff;
+}
+.slot.on { background: #0f766e; border-color: #0f766e; color: #fff; }
+.slot.off { background: #f6f8f9; color: #c3ced3; text-decoration: line-through; }
+.label { font-size: 24rpx; color: #566872; margin-bottom: 8rpx; display: block; }
+.input, .textarea, .picker {
+  border: 1rpx solid #e3eaec; border-radius: 14rpx; padding: 16rpx 20rpx;
+  font-size: 28rpx; background: #fff;
+}
+.textarea { width: auto; min-height: 120rpx; }
+.steps { display: flex; gap: 10rpx; margin-bottom: 18rpx; }
+.steps .s { font-size: 22rpx; padding: 4rpx 16rpx; border-radius: 999rpx; background: #eef3f4; color: #8b9aa3; }
+.steps .s.on { background: #0f766e; color: #fff; }
+.rule { font-size: 22rpx; color: #8b9aa3; border-left: 4rpx solid #e3eaec; padding-left: 16rpx; margin-top: 12rpx; }
+.empty { text-align: center; color: #8b9aa3; font-size: 26rpx; padding: 60rpx 0; }
+.amount { font-size: 64rpx; font-weight: 700; text-align: center; margin: 10rpx 0; }
+
+/* 首页连接状态条（醒目版：绿=已连接，黄=离线） */
+.mode-chip {
+  display: inline-flex; align-items: center; margin-top: 16rpx;
+  font-size: 24rpx; font-weight: 600; padding: 12rpx 28rpx; border-radius: 999rpx;
+  background: #fef3c7; color: #92400e;
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,.12);
+}
+.mode-chip.on { background: #dcfce7; color: #166534; }
+.mode-chip .dot {
+  width: 14rpx; height: 14rpx; border-radius: 50%;
+  background: #f59e0b; margin-right: 12rpx;
+}
+.mode-chip.on .dot { background: #22c55e; }

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>患者端登录 · 牙科诊所</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body style="background:#e9eef0">
+<div class="phone">
+  <div class="p-top" style="padding:26px 18px 46px">
+    <div class="hi">微信小程序 · 患者端</div>
+    <h1 style="margin-top:4px">选择一位患者档案</h1>
+    <div class="allergy">演示环境：模拟 wx.login → code2session → openid 绑定</div>
+  </div>
+
+  <div class="p-body">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}<div class="flash {{ cat }}" style="margin-bottom:10px">{{ msg }}</div>{% endfor %}
+    {% endwith %}
+
+    <div class="p-card">
+      <div class="section-title">已建档患者</div>
+      <form method="post">
+        {% for p in patients %}
+        <div style="padding:9px 0;border-bottom:1px solid #eef3f4">
+          <label class="check" style="align-items:flex-start;gap:9px;width:100%">
+            <input type="radio" name="patient_id" value="{{ p.patient_id }}" {{ 'checked' if loop.first }}>
+            <span>
+              <b style="font-size:13.5px">{{ p.name }}</b>
+              <span class="muted" style="font-size:11.5px"> · {{ p.gender }} · {{ p.birth_date }}</span>
+              <div class="muted" style="font-size:11.5px">{{ p.phone }} · {{ p.source }}{% if p.allergy_cnt %} · 过敏 {{ p.allergy_cnt }} 项{% endif %}</div>
+            </span>
+          </label>
+        </div>
+        {% endfor %}
+        <button class="btn btn-primary btn-block" style="margin-top:12px">微信一键登录</button>
+      </form>
+    </div>
+
+    <div class="p-card">
+      <a class="btn btn-block" href="{{ url_for('auth.login') }}">返回员工登录</a>
+      <div class="help" style="margin-top:8px">小程序正式环境使用 wx.login 获取 code，由后端换取 openid 并与患者档案一对一绑定。</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

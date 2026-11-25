@@ -1,0 +1,64 @@
+{% extends "base_patient.html" %}
+{% block title %}账单{% endblock %}
+{% block heading %}电子结算单{% endblock %}
+{% block content %}
+
+{% for inv in invoices %}
+<div class="p-card">
+  <div class="row between">
+    <div>
+      <b style="font-size:13.5px">{{ inv.kind }}</b>
+      <div class="d mono" style="font-size:11px">{{ inv.invoice_no }}</div>
+    </div>
+    <span class="badge {{ {'待支付':'b-amber','已结算':'b-green','定金已付':'b-teal','部分退款':'b-blue','全额退款':'b-red'}.get(inv.status,'b-gray') }}">{{ inv.status }}</span>
+  </div>
+  <div class="d" style="margin-top:4px">{{ inv.visit_date }} · {{ inv.dentist_name }} · {{ inv.clinic_name }}</div>
+
+  <div style="margin-top:9px">
+    {% for l in lines[inv.invoice_id] %}
+    <div class="row between" style="font-size:12.5px;padding:2px 0">
+      <span class="{{ 'muted' if l.kind != '治疗' }}">{{ l.name }}{% if l.qty != 1 %} × {{ l.qty }}{% endif %}</span>
+      <span>{{ l.amount_cents|money }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="divider"></div>
+  <div class="row between"><span class="muted">总价</span><b>{{ inv.total_cents|money }}</b></div>
+  <div class="row between"><span class="muted">已收（含定金）</span><span>{{ inv.paid_cents|money }}</span></div>
+  {% if inv.refunded %}<div class="row between"><span class="muted">已退回</span><span style="color:#b42318">-{{ inv.refunded|money }}</span></div>{% endif %}
+  <div class="row" style="margin-top:9px;gap:6px">
+    {% if inv.status == '待支付' %}
+      <a class="btn btn-sm btn-primary" href="{{ url_for('patient.pay', invoice_id=inv.invoice_id) }}">在线支付</a>
+    {% endif %}
+    {% if inv.is_invoiced %}<span class="badge b-green">电子发票已开具</span>
+    {% elif inv.status == '已结算' %}<span class="badge b-gray">可到前台开票</span>
+    {% elif inv.status == '定金已付' %}<span class="badge b-teal">定金已付 · 就诊后结算</span>{% endif %}
+  </div>
+</div>
+{% endfor %}
+
+{% if plans %}
+<div class="p-card">
+  <div class="row between" style="margin-bottom:6px"><b style="font-size:14px">分期计划</b>
+    <span class="muted" style="font-size:11px">Σ期款 + 首付 = 总价</span></div>
+  {% for p in plans %}
+  <div style="padding:8px 0;border-bottom:1px dashed #eef3f4">
+    <div class="row between">
+      <div><b style="font-size:12.5px">{{ p.mode }} · {{ p.periods }} 期</b>
+        <div class="d">{{ p.plan_no }} · 首付 {{ p.down_cents|money }} · 每期 {{ p.per_cents|money }}</div></div>
+      <span class="badge {{ {'待支付':'b-amber','已生效':'b-green','已结清':'b-green','已终止':'b-red'}.get(p.status,'b-gray') }}">{{ p.status }}</span>
+    </div>
+    <div class="chip-row" style="margin-top:5px">
+      {% for it in insts[p.inst_plan_id] %}
+      <span class="chip" style="{{ 'background:#fdecea;color:#b42318' if it.status=='逾期' }}">{{ '首期' if it.seq==0 else it.seq }} · {{ it.due_date }} · {{ it.amount_cents|money }} · {{ it.status }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if not invoices %}
+<div class="p-card"><div class="empty">还没有结算单</div></div>
+{% endif %}
+{% endblock %}

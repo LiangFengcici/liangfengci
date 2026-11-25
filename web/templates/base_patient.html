@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{% block title %}患者端{% endblock %} · 牙科诊所</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body style="background:#e9eef0">
+<div class="phone">
+  <div class="p-top" style="{{ 'padding-bottom:18px' if hide_hero }}">
+    {% if not hide_hero %}
+      <div class="row between">
+        <span class="hi">你好，{{ me.name }}</span>
+        <span class="hi">微信小程序</span>
+      </div>
+      <h1>{% block heading %}牙齿的事，一次说清{% endblock %}</h1>
+      {% if allergies %}
+      <div class="allergy">过敏史：{{ allergies|map(attribute='allergen')|join(' / ') }} · 已同步医生端</div>
+      {% else %}
+      <div class="allergy">未登记过敏史 · 预约时可补录</div>
+      {% endif %}
+    {% else %}
+      <div class="row between" style="align-items:center">
+        <a href="{{ back_url or url_for('patient.home') }}" style="color:#fff;font-size:13px">← 返回</a>
+        <b style="font-size:14.5px">{% block ptitle %}{{ self.title() }}{% endblock %}</b>
+        <a href="{{ url_for('patient.bookings') }}" style="color:#fff;font-size:12px">我的预约</a>
+      </div>
+    {% endif %}
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div style="padding:0 14px;margin-top:12px">
+      {% for cat, msg in messages %}<div class="flash {{ cat }}" style="margin-bottom:8px">{{ msg }}</div>{% endfor %}
+    </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="p-body" style="{{ 'margin-top:12px' if hide_hero }}">
+    {% block content %}{% endblock %}
+  </div>
+
+  <nav class="p-tab">
+    <a href="{{ url_for('patient.home') }}" class="{{ 'active' if tab=='booking' }}"><span class="ic">◈</span>预约</a>
+    <a href="{{ url_for('patient.bookings') }}" class="{{ 'active' if tab=='bookings' }}"><span class="ic">▤</span>我的预约</a>
+    <a href="{{ url_for('patient.bills') }}" class="{{ 'active' if tab=='bills' }}"><span class="ic">¥</span>账单</a>
+    <a href="{{ url_for('patient.member') }}" class="{{ 'active' if tab=='member' }}"><span class="ic">☺</span>会员</a>
+  </nav>
+</div>
+{% block scripts %}{% endblock %}
+</body>
+</html>

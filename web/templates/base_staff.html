@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}诊疗信息平台{% endblock %} · 牙科诊所诊疗信息平台</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">齿</div>
+      <div class="brand-txt">
+        <strong>诊疗信息平台</strong>
+        <span>Dental Clinic Platform v1.0</span>
+      </div>
+    </div>
+
+    <div class="nav-label">工作台</div>
+    {% if nav_role == '前台' %}
+      <a class="nav-item {{ 'active' if active=='frontdesk' }}" href="{{ url_for('staff.frontdesk') }}"><span class="ico">▤</span>接待台</a>
+      <a class="nav-item {{ 'active' if active=='booking' }}" href="{{ url_for('staff.frontdesk_booking') }}"><span class="ico">＋</span>预约登记</a>
+    {% elif nav_role == '医生' %}
+      <a class="nav-item {{ 'active' if active=='doctor' }}" href="{{ url_for('staff.doctor') }}"><span class="ico">▤</span>我的诊室</a>
+    {% elif nav_role == '财务' %}
+      <a class="nav-item {{ 'active' if active=='finance' }}" href="{{ url_for('staff.finance') }}"><span class="ico">¥</span>财务工作台</a>
+    {% elif nav_role == '诊所经理' %}
+      <a class="nav-item {{ 'active' if active=='manager' }}" href="{{ url_for('staff.manager') }}"><span class="ico">◔</span>经营看板</a>
+      <a class="nav-item {{ 'active' if active=='schedule' }}" href="{{ url_for('staff.manager_schedule') }}"><span class="ico">▦</span>排班与号源</a>
+      <a class="nav-item {{ 'active' if active=='frontdesk' }}" href="{{ url_for('staff.frontdesk') }}"><span class="ico">▤</span>接待台（代办）</a>
+      <a class="nav-item {{ 'active' if active=='finance' }}" href="{{ url_for('staff.finance') }}"><span class="ico">¥</span>财务（查看）</a>
+    {% elif nav_role == '运营专员' %}
+      <a class="nav-item {{ 'active' if active=='ops' }}" href="{{ url_for('staff.ops') }}"><span class="ico">⚙</span>主数据维护</a>
+      <a class="nav-item {{ 'active' if active=='manager' }}" href="{{ url_for('staff.manager') }}"><span class="ico">◔</span>经营看板</a>
+    {% endif %}
+
+    <div class="nav-label">渠道</div>
+    <a class="nav-item" href="{{ url_for('patient.home') }}"><span class="ico">◧</span>患者端（小程序 H5）</a>
+    <a class="nav-item" href="{{ url_for('api.catalog') }}"><span class="ico">{}</span>小程序 API</a>
+
+    <div class="nav-label">系统</div>
+    <form method="post" action="{{ url_for('staff.jobs_run') }}">
+      <button class="nav-item btn-ghost" style="width:100%;border:0;cursor:pointer;text-align:left">
+        <span class="ico">↻</span>执行定时任务
+      </button>
+    </form>
+    <a class="nav-item" href="{{ url_for('staff.export_csv', name='audit') }}"><span class="ico">↓</span>导出审计日志</a>
+
+    <div class="sidebar-foot">
+      <div class="who">
+        <b>{{ nav_name }}</b>
+        {{ nav_role }}{% if nav_clinic %} · {{ '中山路旗舰诊所' if nav_clinic==1 else '高新园区诊所' }}{% endif %}
+      </div>
+      <a class="btn btn-sm btn-block" href="{{ url_for('auth.logout') }}">退出登录</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="crumbs">{% block crumb %}诊疗信息平台{% endblock %}</div>
+        <h1>{% block heading %}{{ self.title() }}{% endblock %}</h1>
+      </div>
+      <div class="actions">{% block actions %}{% endblock %}</div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="flash-wrap">
+        {% for cat, msg in messages %}
+          <div class="flash {{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% block scripts %}{% endblock %}
+</body>
+</html>
